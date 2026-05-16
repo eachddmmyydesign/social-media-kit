@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Threads Simulator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Space+Mono:wght@400;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#0e0e0e;--surface:#1a1a1a;--surface2:#242424;--surface3:#2e2e2e;
+  --border:rgba(255,255,255,0.07);--text:#f0f0f0;--muted:#777;
+  --accent:#e040fb;--accent2:#7c4dff;--r:10px;
+
+  /* Threads card tokens (深色) */
+  --th-bg:#000;--th-text:#fff;--th-text-soft:#aaa;--th-text-dim:#666;
+  --th-border:#1a1a1a;--th-divider:rgba(255,255,255,.08);
+  --th-card-bg:#0f0f0f;--th-accent:#0095f6;
+}
+
+html,body{height:100%;overflow:hidden}
+body{font-family:'DM Sans','Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+
+/* HEADER */
+header{
+  padding:14px 20px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;flex-shrink:0;
+}
+.logo{width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));flex-shrink:0}
+header h1{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;letter-spacing:.06em}
+header span{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);margin-left:auto}
+
+/* LAYOUT */
+.main{display:grid;grid-template-columns:340px 1fr;flex:1;overflow:hidden}
+
+/* PANEL */
+.panel{
+  padding:18px;border-right:1px solid var(--border);
+  overflow-y:auto;display:flex;flex-direction:column;gap:16px;
+}
+.panel::-webkit-scrollbar{width:3px}
+.panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+.sec-label{
+  font-size:10px;font-weight:600;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:8px;
+}
+.sec-label .sec-extra{font-size:10px;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:400;margin-left:4px}
+
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:12px;color:var(--muted)}
+
+input[type=text],input[type=number],textarea{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;padding:9px 12px;color:var(--text);
+  font-family:'DM Sans','Noto Sans TC',sans-serif;font-size:14px;outline:none;
+  transition:border-color .15s;width:100%;
+}
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+input:focus,textarea:focus{border-color:rgba(224,64,251,.5)}
+textarea{resize:none;min-height:86px;line-height:1.5}
+
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px}
+.row4 .field label{font-size:10px}
+.divider{height:1px;background:var(--border)}
+
+/* AVATAR ROW */
+.avatar-row{display:flex;align-items:center;gap:12px}
+.avatar-upload{
+  width:52px;height:52px;border-radius:50%;
+  border:1px dashed var(--border);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;overflow:hidden;position:relative;flex-shrink:0;
+  transition:border-color .15s;
+}
+.avatar-upload:hover{border-color:var(--accent)}
+.avatar-upload input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.avatar-upload img{width:100%;height:100%;object-fit:cover;display:none}
+.avatar-upload .av-ph{font-size:18px;color:var(--muted)}
+.avatar-fields{flex:1;display:flex;flex-direction:column;gap:7px}
+
+/* CAROUSEL UPLOAD */
+.carousel-manager{display:flex;flex-direction:column;gap:10px}
+.carousel-thumbs{
+  display:flex;flex-wrap:wrap;gap:6px;
+  min-height:60px;
+}
+.thumb-item{
+  width:56px;height:56px;border-radius:6px;
+  position:relative;flex-shrink:0;cursor:pointer;
+  border:2px solid transparent;transition:border-color .15s;overflow:hidden;
+}
+.thumb-item img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb-del{
+  position:absolute;top:2px;right:2px;
+  width:16px;height:16px;border-radius:50%;
+  background:rgba(0,0,0,.75);color:#fff;
+  font-size:9px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;line-height:1;
+}
+.thumb-add{
+  width:56px;height:56px;border-radius:6px;
+  border:1px dashed var(--border);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  cursor:pointer;position:relative;gap:2px;
+  transition:border-color .15s,background .15s;flex-shrink:0;
+}
+.thumb-add:hover{border-color:var(--accent);background:rgba(224,64,251,.04)}
+.thumb-add input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.thumb-add span{font-size:18px;color:var(--muted);line-height:1}
+.thumb-add p{font-size:9px;color:var(--muted)}
+.carousel-hint{font-size:11px;color:var(--muted)}
+
+/* SIZE TABS / RATIO TABS */
+.size-tabs{display:flex;gap:4px;background:var(--surface2);padding:3px;border-radius:8px}
+.size-tab{
+  flex:1;padding:6px 4px;border-radius:6px;font-size:11px;font-weight:500;
+  text-align:center;cursor:pointer;color:var(--muted);transition:all .12s;user-select:none;
+}
+.size-tab.active{background:var(--surface3);color:var(--text);border:1px solid var(--border)}
+
+/* TOGGLE */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0}
+.toggle-row span{font-size:13px;color:var(--muted)}
+.toggle{
+  width:34px;height:18px;background:var(--surface2);border-radius:9px;
+  cursor:pointer;position:relative;transition:background .2s;border:1px solid var(--border);
+  flex-shrink:0;
+}
+.toggle.on{background:var(--accent);border-color:var(--accent)}
+.toggle::after{
+  content:'';position:absolute;width:12px;height:12px;border-radius:50%;
+  background:white;top:2px;left:2px;transition:left .2s;
+}
+.toggle.on::after{left:18px}
+
+/* ACTION BAR */
+.action-bar{display:flex;flex-direction:column;gap:7px}
+.btn-dl{
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:white;border:none;border-radius:var(--r);padding:13px;
+  font-family:'DM Sans','Noto Sans TC',sans-serif;font-size:14px;font-weight:600;
+  cursor:pointer;width:100%;transition:opacity .2s,transform .1s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.btn-dl:hover{opacity:.9}
+.btn-dl:active{transform:scale(.98)}
+.btn-dl.loading{opacity:.6;pointer-events:none}
+
+/* PREVIEW */
+.preview-area{
+  display:flex;
+  align-items:safe center;justify-content:safe center;
+  padding:28px;background:#0a0a0a;overflow:auto;
+}
+
+/* PHONE FRAME */
+.phone-wrapper{position:relative;margin:auto 0}
+
+/* 預設無手機外框，預覽 = 純 Threads card */
+.phone-frame-chrome{display:none}
+
+/* 開啟手機外框後 ===== */
+.with-phone-frame{
+  padding:60px 12px 30px;
+  background:#0b0b0d;
+  border-radius:54px;
+  box-shadow:
+    0 0 0 2px #2a2a2d,
+    0 0 0 4px #0b0b0d,
+    0 0 0 5px #3a3a3d,
+    0 30px 60px -10px rgba(0,0,0,.6),
+    inset 0 0 0 1px rgba(255,255,255,.04);
+  position:relative;
+}
+.with-phone-frame #th-card{border-radius:6px;overflow:hidden}
+.with-phone-frame .phone-frame-chrome{display:block}
+
+/* 動態島 */
+.phone-island{
+  position:absolute;top:14px;left:50%;transform:translateX(-50%);
+  width:118px;height:33px;border-radius:20px;
+  background:#000;
+  box-shadow:inset 0 0 0 1px #1a1a1a;
+  z-index:5;
+}
+
+/* 頂部狀態列 */
+.phone-statusbar{
+  position:absolute;top:0;left:0;right:0;height:54px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 32px 0;
+  font-family:-apple-system,'SF Pro Text',BlinkMacSystemFont,sans-serif;
+  font-size:15px;font-weight:600;color:#fff;
+  pointer-events:none;z-index:6;
+}
+.phone-statusbar .sb-time{letter-spacing:-.2px}
+.phone-statusbar .sb-right{display:flex;align-items:center;gap:5px}
+.phone-statusbar svg{display:block}
+
+/* 底部 Home Indicator */
+.phone-home{
+  position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
+  width:134px;height:5px;border-radius:3px;background:#fff;
+  opacity:.92;z-index:6;
+}
+
+/* 側邊實體鍵 */
+.phone-btn{position:absolute;background:#1d1d1f;border-radius:2px;box-shadow:inset 1px 0 0 rgba(255,255,255,.05)}
+.phone-btn.silent  {left:-7px;top:88px; width:4px;height:28px}
+.phone-btn.vol-up  {left:-7px;top:128px;width:4px;height:54px}
+.phone-btn.vol-down{left:-7px;top:194px;width:4px;height:54px}
+.phone-btn.power   {right:-7px;top:140px;width:4px;height:80px;
+  box-shadow:inset -1px 0 0 rgba(255,255,255,.05)}
+
+/* ===== PHONE SCREEN ===== */
+.phone-screen{display:block;background:var(--th-bg);width:390px}
+.with-phone-frame{
+  width:414px;height:880px;
+  display:flex;flex-direction:column;align-items:stretch;
+}
+.with-phone-frame .phone-screen{
+  flex:1;overflow-y:auto;overflow-x:hidden;
+  scrollbar-width:none;border-radius:6px;
+  scroll-behavior:smooth;
+  -webkit-overflow-scrolling:touch;
+}
+.with-phone-frame .phone-screen::-webkit-scrollbar{display:none}
+
+/* ===== THREADS CARD ===== */
+#th-card{
+  width:390px;background:var(--th-bg);color:var(--th-text);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans TC',sans-serif;
+  overflow:hidden;position:relative;
+}
+
+/* Threads top bar (logo + 三條線 + 搜尋) - 只在手機外框 ON 時顯示 */
+.th-topbar{
+  display:none;
+  align-items:center;justify-content:space-between;
+  padding:10px 18px 12px;
+  border-bottom:.5px solid var(--th-border);
+  background:var(--th-bg);
+}
+.with-phone-frame .th-topbar{display:flex}
+.th-topbar .th-menu,.th-topbar .th-search{
+  width:24px;height:24px;display:flex;align-items:center;justify-content:center;
+  color:#fff;
+}
+.th-topbar .th-menu svg,.th-topbar .th-search svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:2}
+.th-logo{
+  width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+}
+.th-logo svg{width:26px;height:26px;fill:#fff}
+
+/* POST */
+.th-post{
+  padding:14px 16px 10px;
+  border-bottom:.5px solid var(--th-border);
+  display:flex;gap:11px;background:var(--th-bg);
+}
+.th-left{display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0}
+.th-av{
+  width:42px;height:42px;border-radius:50%;overflow:hidden;background:#333;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:15px;color:#fff;flex-shrink:0;
+}
+.th-av img{width:100%;height:100%;object-fit:cover;display:block}
+.th-right{flex:1;min-width:0}
+
+/* Meta line */
+.th-meta{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px}
+.th-meta-left{display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+.th-name{font-weight:700;font-size:14px;color:#fff}
+.th-check{color:var(--th-accent);font-size:13px;display:inline-flex;align-items:center}
+.th-check svg{width:13px;height:13px;fill:var(--th-accent)}
+.th-topic{color:var(--th-text-soft);font-size:13px}
+.th-spon{
+  background:transparent;border:1px solid #444;border-radius:4px;
+  color:#aaa;font-size:11px;padding:1px 5px;font-weight:500;
+}
+.th-time{color:var(--th-text-soft);font-size:13px}
+.th-meta-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.th-meta-right svg{fill:#888}
+
+/* Body */
+.th-body{
+  font-size:14px;color:#f0f0f0;line-height:1.55;margin-bottom:0;
+  white-space:pre-wrap;word-break:break-word;
+}
+.th-body.collapsed{
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+}
+.th-more{color:var(--th-text-soft);font-size:14px;cursor:pointer;margin-top:2px;display:block}
+.th-body-wrap{margin-bottom:10px}
+
+/* Images */
+.th-carousel{
+  display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;
+  margin-right:-4px;padding-bottom:2px;margin-bottom:10px;
+}
+.th-carousel::-webkit-scrollbar{display:none}
+.th-carousel:empty{display:none;margin-bottom:0}
+.th-carousel.single-full{display:block;margin-right:0}
+.th-carousel.single-full .th-raw-img{width:100%;border-radius:12px;display:block;object-fit:cover}
+
+.th-raw-img{border-radius:10px;object-fit:cover;display:block;flex-shrink:0}
+
+.th-img-indicator{
+  position:absolute;bottom:8px;left:8px;
+  background:rgba(0,0,0,.6);border-radius:20px;
+  padding:2px 8px;font-size:11px;color:#fff;font-weight:600;
+}
+.th-img-wrap{position:relative;display:inline-block}
+
+/* Card */
+.th-card{
+  min-width:176px;max-width:176px;background:#fff;
+  border-radius:12px;overflow:hidden;border:.5px solid #ddd;flex-shrink:0;
+}
+.th-card img{width:176px;object-fit:cover;display:block}
+.th-card-info{padding:8px 10px;background:#fff}
+.th-card-url{color:#888;font-size:11px;margin-bottom:2px}
+.th-card-title{color:#111;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Actions */
+.th-actions{display:flex;gap:14px;margin-top:6px;align-items:center}
+.th-act{color:#888;display:flex;align-items:center;gap:4px;font-size:13px}
+.th-act svg{width:19px;height:19px;stroke:#888;fill:none;stroke-width:1.8}
+
+/* Ghost (下一則貼文) - 只在手機外框 ON 時顯示 */
+.th-ghost{display:none;padding:14px 16px;gap:11px;opacity:.25}
+.with-phone-frame .th-ghost{display:flex}
+.ghost-av{width:42px;height:42px;border-radius:50%;background:#2a2a2a;flex-shrink:0}
+.ghost-lines{flex:1;padding-top:4px}
+.ghost-line{height:9px;background:#2a2a2a;border-radius:4px;margin-bottom:9px}
+
+/* FAB - 只在手機外框 ON 時顯示 */
+.th-fab-area{display:none;background:var(--th-bg);padding:8px 16px 14px;justify-content:flex-end}
+.with-phone-frame .th-fab-area{display:flex}
+.th-fab-btn{
+  width:42px;height:42px;background:#1e1e1e;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-size:22px;line-height:1;border:.5px solid #333;
+}
+
+/* ===== RWD ===== */
+@media(max-width:768px){
+  html,body{height:auto;overflow:auto}
+  .main{grid-template-columns:1fr;overflow:visible}
+  .panel{border-right:none;border-bottom:1px solid var(--border);overflow-y:visible}
+  .preview-area{padding:20px 16px;min-height:500px;align-items:safe flex-start}
+  #th-card{width:100%;max-width:390px}
+  input[type=text],input[type=number],textarea{font-size:16px!important}
+  .action-bar{
+    position:sticky;bottom:0;
+    background:var(--bg);border-top:1px solid var(--border);
+    padding:12px 16px;z-index:100;
+  }
+}
+@media(max-width:400px){.row2,.row4{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"></div>
+  <h1>THREADS SIMULATOR</h1>
+  <span>v3.0</span>
+</header>
+
+<div class="main">
+<div class="panel">
+
+  <!-- 帳號資訊 -->
+  <div>
+    <div class="sec-label">帳號資訊</div>
+    <div class="avatar-row">
+      <div class="avatar-upload" id="avZone">
+        <input type="file" accept="image/*" id="avInput">
+        <img id="avPrev" alt="">
+        <span class="av-ph" id="avIcon">＋</span>
+      </div>
+      <div class="avatar-fields">
+        <input type="text" id="usernameInput" placeholder="username">
+        <input type="text" id="timeInput" placeholder="時間（30分鐘、1天...）">
+      </div>
+    </div>
+    <div class="row2" style="margin-top:10px">
+      <div class="toggle-row">
+        <span>藍勾勾</span>
+        <div class="toggle" id="checkToggle"></div>
+      </div>
+      <div class="toggle-row">
+        <span>贊助標籤</span>
+        <div class="toggle" id="sponsoredToggle"></div>
+      </div>
+    </div>
+    <div class="field" style="margin-top:4px">
+      <div class="toggle-row" style="padding-top:0">
+        <span>主題（&gt; 對象）</span>
+        <div class="toggle" id="topicToggle"></div>
+      </div>
+      <input type="text" id="topicInput" placeholder="輸入對象帳號名稱" style="display:none;margin-top:4px">
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 文案 -->
+  <div>
+    <div class="sec-label">貼文內容</div>
+    <div class="field">
+      <label>文案</label>
+      <textarea id="postText" placeholder="寫下你的文案..."></textarea>
+    </div>
+    <div class="toggle-row" style="margin-top:4px">
+      <span>長文可收合（…更多）</span>
+      <div class="toggle" id="collapseToggle"></div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 圖片 -->
+  <div>
+    <div class="sec-label">貼文圖片 <span class="sec-extra">（可疊加多張）</span></div>
+    <div class="field" style="margin-bottom:10px">
+      <label>顯示比例</label>
+      <div class="size-tabs" id="ratioTabs">
+        <div class="size-tab active" data-ratio="1:1">1:1</div>
+        <div class="size-tab" data-ratio="3:4">3:4</div>
+        <div class="size-tab" data-ratio="4:3">4:3</div>
+        <div class="size-tab" data-ratio="9:16">9:16</div>
+        <div class="size-tab" data-ratio="16:9">16:9</div>
+      </div>
+    </div>
+    <div class="carousel-manager">
+      <div class="carousel-thumbs" id="thumbsWrap">
+        <div class="thumb-add" id="addThumb">
+          <input type="file" accept="image/*" id="imgInput" multiple>
+          <span>＋</span>
+          <p>新增圖片</p>
+        </div>
+      </div>
+      <p class="carousel-hint" id="carouselHint" style="display:none">點 × 刪除</p>
+    </div>
+    <div class="toggle-row" style="margin-top:8px">
+      <span>顯示為圖片卡片（含網址）</span>
+      <div class="toggle" id="cardToggle"></div>
+    </div>
+    <div id="cardFields" style="display:none">
+      <div class="field" style="margin-top:6px">
+        <label>卡片網址</label>
+        <input type="text" id="urlInput" placeholder="example.com.tw">
+      </div>
+      <div class="field" style="margin-top:8px">
+        <label>卡片標題</label>
+        <input type="text" id="titleInput" placeholder="產品名稱">
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 互動數字 -->
+  <div>
+    <div class="sec-label">互動數字</div>
+    <div class="row4">
+      <div class="field">
+        <label>❤ 按讚</label>
+        <input type="text" id="likesInput" placeholder="1.2萬">
+      </div>
+      <div class="field">
+        <label>💬 留言</label>
+        <input type="text" id="commentsInput" placeholder="183">
+      </div>
+      <div class="field">
+        <label>↻ 轉發</label>
+        <input type="text" id="repostsInput" placeholder="220">
+      </div>
+      <div class="field">
+        <label>↗ 分享</label>
+        <input type="text" id="sharesInput" placeholder="785">
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 顯示選項 -->
+  <div>
+    <div class="sec-label">顯示選項</div>
+    <div class="toggle-row">
+      <span>手機外框</span>
+      <div class="toggle" id="phoneToggle"></div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="action-bar">
+    <button class="btn-dl" id="downloadBtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      下載圖片
+    </button>
+  </div>
+
+</div><!-- /panel -->
+
+<!-- 預覽 -->
+<div class="preview-area">
+  <div class="phone-wrapper" id="phoneWrapper">
+    <div class="phone-screen" id="phoneScreen">
+
+    <div id="th-card">
+
+      <!-- Threads top bar (only with phone frame) -->
+      <div class="th-topbar">
+        <div class="th-menu">
+          <svg viewBox="0 0 24 24" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </div>
+        <div class="th-logo">
+          <!-- Threads-like @ glyph -->
+          <svg viewBox="0 0 24 24"><path d="M16.71 11.34c-.08-.04-.16-.07-.24-.1-.13-2.52-1.5-3.96-3.81-3.98h-.03c-1.38 0-2.53.59-3.24 1.66l1.27.87c.53-.81 1.36-.98 1.97-.98 1.36.01 2.06.93 2.18 2.27-.55-.07-1.14-.09-1.75-.07-1.74.05-3.27.95-3.18 2.61.05.85.48 1.58 1.18 2.05.6.4 1.36.6 2.17.55 1.06-.06 1.9-.46 2.48-1.2.43-.55.7-1.27.83-2.17.51.31.89.71 1.1 1.2.36.83.38 2.2-.74 3.31-.98.98-2.16 1.4-3.94 1.41-1.97-.01-3.46-.65-4.43-1.88-.92-1.17-1.39-2.85-1.41-5.01.02-2.16.49-3.84 1.41-5.01.97-1.24 2.46-1.87 4.43-1.88 1.99.01 3.5.65 4.5 1.91.49.61.86 1.39 1.1 2.31l1.5-.4c-.29-1.12-.75-2.09-1.38-2.88-1.27-1.6-3.13-2.42-5.52-2.44h-.02c-2.38.02-4.21.84-5.45 2.45-1.1 1.44-1.67 3.44-1.69 5.95v.02c.02 2.5.59 4.5 1.69 5.94 1.24 1.6 3.07 2.43 5.45 2.45h.02c2.11-.02 3.6-.57 4.83-1.79 1.61-1.61 1.56-3.61.91-4.78-.39-.7-.91-1.31-1.58-1.73zm-3.21 3.85c-.9.05-1.83-.35-1.88-1.22-.03-.65.46-1.37 1.93-1.45.17-.01.34-.01.5-.01.54 0 1.04.05 1.5.14-.18 2.18-1.21 2.49-2.05 2.54z"/></svg>
+        </div>
+        <div class="th-search">
+          <svg viewBox="0 0 24 24" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </div>
+      </div>
+
+      <div class="th-post">
+        <div class="th-left">
+          <div class="th-av" id="pAv"><span id="pAvTxt">?</span></div>
+        </div>
+        <div class="th-right">
+          <!-- Meta -->
+          <div class="th-meta">
+            <div class="th-meta-left">
+              <span class="th-name" id="pName">username</span>
+              <span class="th-check" id="pCheck" style="display:none">
+                <svg viewBox="0 0 24 24"><path d="M12 1.5 14.6 4l3.55-.34.32 3.54 2.51 2.52-1.84 3.05 1.05 3.4-3.4 1.06-1.84 3.04L12 18.96l-3.05 1.84-1.84-3.04L3.7 16.7l1.06-3.4-1.84-3.04L5.43 7.2l.32-3.54L9.29 4 12 1.5Zm-1.4 13.06 6.7-6.7-1.4-1.4-5.3 5.3-2.5-2.5-1.4 1.4 3.9 3.9Z"/></svg>
+              </span>
+              <span class="th-topic" id="pTopic" style="display:none"></span>
+              <span class="th-time" id="pTime" style="display:none"></span>
+              <span class="th-spon" id="pSpon" style="display:none">贊助</span>
+            </div>
+            <div class="th-meta-right">
+              <svg width="16" height="16" viewBox="0 0 24 6">
+                <circle cx="3" cy="3" r="1.8"/>
+                <circle cx="12" cy="3" r="1.8"/>
+                <circle cx="21" cy="3" r="1.8"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Body -->
+          <div class="th-body-wrap" id="pBodyWrap">
+            <div class="th-body" id="pBody"></div>
+            <span class="th-more" id="pMore" style="display:none">更多</span>
+          </div>
+
+          <!-- Carousel -->
+          <div class="th-carousel" id="pCarousel"></div>
+
+          <!-- Actions -->
+          <div class="th-actions">
+            <div class="th-act">
+              <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+              <span id="pLikes"></span>
+            </div>
+            <div class="th-act">
+              <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <span id="pComments"></span>
+            </div>
+            <div class="th-act">
+              <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+              <span id="pReposts"></span>
+            </div>
+            <div class="th-act">
+              <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              <span id="pShares"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ghost -->
+      <div class="th-ghost">
+        <div class="ghost-av"></div>
+        <div class="ghost-lines">
+          <div class="ghost-line" style="width:55%"></div>
+          <div class="ghost-line" style="width:80%"></div>
+          <div class="ghost-line" style="width:40%"></div>
+        </div>
+      </div>
+
+      <!-- FAB -->
+      <div class="th-fab-area">
+        <div class="th-fab-btn">+</div>
+      </div>
+
+    </div><!-- /th-card -->
+
+    </div><!-- /phone-screen -->
+
+    <!-- 手機外框裝飾 -->
+    <div class="phone-frame-chrome">
+      <div class="phone-statusbar">
+        <span class="sb-time">9:41</span>
+        <div class="sb-right">
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="#fff"><rect x="0" y="7" width="3" height="4" rx=".5"/><rect x="4.5" y="5" width="3" height="6" rx=".5"/><rect x="9" y="2.5" width="3" height="8.5" rx=".5"/><rect x="13.5" y="0" width="3" height="11" rx=".5"/></svg>
+          <svg width="16" height="11" viewBox="0 0 16 11" fill="#fff"><path d="M8 10.5a1.3 1.3 0 1 0 0-2.6 1.3 1.3 0 0 0 0 2.6Zm-3.4-3.7a4.8 4.8 0 0 1 6.8 0l1.2-1.2a6.5 6.5 0 0 0-9.2 0l1.2 1.2Zm-2.7-2.7a8.6 8.6 0 0 1 12.2 0L15.3 2.9a10.3 10.3 0 0 0-14.6 0L1.9 4.1Z"/></svg>
+          <svg width="27" height="12" viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="2.5" fill="none" stroke="#fff" stroke-opacity=".5"/><rect x="2" y="2" width="19" height="8" rx="1.2" fill="#fff"/><rect x="23.5" y="4" width="2" height="4" rx="1" fill="#fff" fill-opacity=".5"/></svg>
+        </div>
+      </div>
+      <div class="phone-island"></div>
+      <div class="phone-btn silent"></div>
+      <div class="phone-btn vol-up"></div>
+      <div class="phone-btn vol-down"></div>
+      <div class="phone-btn power"></div>
+      <div class="phone-home"></div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<script>
+// ── State ──
+let avatarDataUrl = null;
+let imageDataUrls = [];
+let currentRatio = '1:1';
+let isCheck = false;
+let isSponsored = false;
+let isTopic = false;
+let isCollapse = false;
+let isCard = false;
+let isPhoneMode = false;
+
+// ── Helpers ──
+function ratioDims(ratio){
+  const map = {'1:1':[176,176],'3:4':[176,234],'4:3':[230,172],'9:16':[176,312],'16:9':[310,174]};
+  return map[ratio] || [176,176];
+}
+
+// ── Avatar ──
+document.getElementById('avInput').addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    avatarDataUrl = ev.target.result;
+    const img = document.getElementById('avPrev');
+    img.src = avatarDataUrl;
+    img.style.display = 'block';
+    document.getElementById('avIcon').style.display = 'none';
+    renderAvatar();
+  };
+  r.readAsDataURL(file);
+});
+
+function renderAvatar(){
+  const el = document.getElementById('pAv');
+  const name = document.getElementById('usernameInput').value || '';
+  if (avatarDataUrl){
+    el.innerHTML = `<img src="${avatarDataUrl}">`;
+  } else {
+    el.innerHTML = `<span>${(name||'?').substring(0,2).toUpperCase()}</span>`;
+  }
+}
+
+// ── Username ──
+document.getElementById('usernameInput').addEventListener('input', e => {
+  document.getElementById('pName').textContent = e.target.value || 'username';
+  if (!avatarDataUrl) renderAvatar();
+});
+
+// ── Time ──
+document.getElementById('timeInput').addEventListener('input', e => {
+  const v = e.target.value.trim();
+  const el = document.getElementById('pTime');
+  el.textContent = v;
+  el.style.display = v ? '' : 'none';
+});
+
+// ── Blue check ──
+document.getElementById('checkToggle').addEventListener('click', () => {
+  isCheck = !isCheck;
+  document.getElementById('checkToggle').classList.toggle('on', isCheck);
+  document.getElementById('pCheck').style.display = isCheck ? 'inline-flex' : 'none';
+});
+
+// ── Sponsored ──
+document.getElementById('sponsoredToggle').addEventListener('click', () => {
+  isSponsored = !isSponsored;
+  document.getElementById('sponsoredToggle').classList.toggle('on', isSponsored);
+  document.getElementById('pSpon').style.display = isSponsored ? '' : 'none';
+});
+
+// ── Topic ──
+document.getElementById('topicToggle').addEventListener('click', () => {
+  isTopic = !isTopic;
+  document.getElementById('topicToggle').classList.toggle('on', isTopic);
+  document.getElementById('topicInput').style.display = isTopic ? '' : 'none';
+  renderTopic();
+});
+document.getElementById('topicInput').addEventListener('input', renderTopic);
+function renderTopic(){
+  const el = document.getElementById('pTopic');
+  if (isTopic){
+    const target = document.getElementById('topicInput').value.trim();
+    el.textContent = target ? `> ${target}` : '> ...';
+    el.style.display = '';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+// ── Collapse ──
+document.getElementById('collapseToggle').addEventListener('click', () => {
+  isCollapse = !isCollapse;
+  document.getElementById('collapseToggle').classList.toggle('on', isCollapse);
+  renderBody();
+});
+document.getElementById('postText').addEventListener('input', renderBody);
+function renderBody(){
+  const txt = document.getElementById('postText').value;
+  const body = document.getElementById('pBody');
+  const more = document.getElementById('pMore');
+  body.textContent = txt;
+  if (isCollapse){
+    body.classList.add('collapsed');
+    more.style.display = txt ? '' : 'none';
+  } else {
+    body.classList.remove('collapsed');
+    more.style.display = 'none';
+  }
+}
+
+// ── Ratio tabs ──
+document.querySelectorAll('#ratioTabs .size-tab').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('#ratioTabs .size-tab').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    currentRatio = chip.dataset.ratio;
+    renderCarousel();
+  });
+});
+
+// ── Images (multiple + append) ──
+const imgInput = document.getElementById('imgInput');
+imgInput.addEventListener('change', e => {
+  handleFiles(Array.from(e.target.files));
+  imgInput.value = '';
+});
+
+function handleFiles(files){
+  files.forEach(file => {
+    const r = new FileReader();
+    r.onload = ev => {
+      imageDataUrls.push(ev.target.result);
+      rebuildThumbs();
+      renderCarousel();
+    };
+    r.readAsDataURL(file);
+  });
+}
+
+function rebuildThumbs(){
+  const wrap = document.getElementById('thumbsWrap');
+  wrap.querySelectorAll('.thumb-item').forEach(el => el.remove());
+  const addBtn = document.getElementById('addThumb');
+  imageDataUrls.forEach((src, i) => {
+    const item = document.createElement('div');
+    item.className = 'thumb-item';
+    item.innerHTML = `<img src="${src}"><div class="thumb-del" data-idx="${i}">×</div>`;
+    wrap.insertBefore(item, addBtn);
+  });
+  wrap.querySelectorAll('.thumb-del').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const i = parseInt(btn.dataset.idx);
+      imageDataUrls.splice(i, 1);
+      rebuildThumbs();
+      renderCarousel();
+    });
+  });
+  document.getElementById('carouselHint').style.display = imageDataUrls.length ? '' : 'none';
+}
+
+// ── Card toggle ──
+document.getElementById('cardToggle').addEventListener('click', () => {
+  isCard = !isCard;
+  document.getElementById('cardToggle').classList.toggle('on', isCard);
+  document.getElementById('cardFields').style.display = isCard ? '' : 'none';
+  renderCarousel();
+});
+document.getElementById('urlInput').addEventListener('input', renderCarousel);
+document.getElementById('titleInput').addEventListener('input', renderCarousel);
+
+// ── Render carousel ──
+function renderCarousel(){
+  const c = document.getElementById('pCarousel');
+  c.innerHTML = '';
+  c.className = 'th-carousel';
+  if (imageDataUrls.length === 0) return;
+
+  const url = document.getElementById('urlInput').value.trim();
+  const title = document.getElementById('titleInput').value.trim();
+  const [w, h] = ratioDims(currentRatio);
+
+  if (isCard){
+    imageDataUrls.forEach(src => {
+      const card = document.createElement('div');
+      card.className = 'th-card';
+      card.style.minWidth = w + 'px';
+      card.style.maxWidth = w + 'px';
+      card.innerHTML = `
+        <img src="${src}" style="width:${w}px;height:${h}px">
+        <div class="th-card-info">
+          ${url ? `<div class="th-card-url">${url}</div>` : ''}
+          ${title ? `<div class="th-card-title">${title}</div>` : ''}
+        </div>`;
+      c.appendChild(card);
+    });
+  } else {
+    if (imageDataUrls.length === 1){
+      c.classList.add('single-full');
+      const img = document.createElement('img');
+      img.src = imageDataUrls[0];
+      img.className = 'th-raw-img';
+      img.style.width = '100%';
+      img.style.height = h + 'px';
+      img.style.maxHeight = '340px';
+      c.appendChild(img);
+    } else {
+      imageDataUrls.forEach((src, i) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'th-img-wrap';
+        const img = document.createElement('img');
+        img.src = src;
+        img.className = 'th-raw-img';
+        img.style.width = w + 'px';
+        img.style.height = h + 'px';
+        wrap.appendChild(img);
+        if (i === 0){
+          const ind = document.createElement('div');
+          ind.className = 'th-img-indicator';
+          ind.textContent = `1/${imageDataUrls.length}`;
+          wrap.appendChild(ind);
+        }
+        c.appendChild(wrap);
+      });
+    }
+  }
+}
+
+// ── Action counts ──
+['likes','comments','reposts','shares'].forEach(k => {
+  document.getElementById(k + 'Input').addEventListener('input', e => {
+    document.getElementById('p' + k.charAt(0).toUpperCase() + k.slice(1)).textContent = e.target.value;
+  });
+});
+
+// ── Phone frame toggle ──
+document.getElementById('phoneToggle').addEventListener('click', () => {
+  isPhoneMode = !isPhoneMode;
+  document.getElementById('phoneToggle').classList.toggle('on', isPhoneMode);
+  const wrapper = document.getElementById('phoneWrapper');
+  if (isPhoneMode){
+    wrapper.classList.add('with-phone-frame');
+  } else {
+    wrapper.classList.remove('with-phone-frame');
+  }
+});
+
+// ── Download ──
+document.getElementById('downloadBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('downloadBtn');
+  btn.classList.add('loading');
+  const orig = btn.innerHTML;
+  btn.textContent = '處理中...';
+  await new Promise(r => setTimeout(r, 100));
+  try {
+    const el = document.getElementById('phoneWrapper');
+    const canvas = await html2canvas(el, {
+      backgroundColor: isPhoneMode ? '#0b0b0d' : '#000',
+      scale: 2.5,
+      useCORS: true, allowTaint: true, logging: false, imageTimeout: 0,
+    });
+    const a = document.createElement('a');
+    a.download = 'threads-post.png';
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  } catch (e){
+    console.error(e);
+    alert('下載失敗，請再試一次');
+  }
+  btn.classList.remove('loading');
+  btn.innerHTML = orig;
+});
+
+// ── Init ──
+renderAvatar();
+renderBody();
+</script>
+</body>
+</html>

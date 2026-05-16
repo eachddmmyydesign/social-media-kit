@@ -1,0 +1,1887 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>IG Preview Tool</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Space+Mono:wght@400;700&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#0e0e0e;--surface:#1a1a1a;--surface2:#242424;--surface3:#2e2e2e;
+  --border:rgba(255,255,255,0.07);--text:#f0f0f0;--muted:#777;
+  --accent:#e040fb;--accent2:#7c4dff;--r:10px;
+
+  /* IG card tokens (預設=深色) */
+  --ig-bg:#000;--ig-text:#fff;--ig-text-soft:#aaa;--ig-text-dim:#555;
+  --ig-border:#262626;--ig-img-bg:#111;--ig-link:#6eb0f5;
+}
+
+/* 淺色系 IG */
+body.ig-light{
+  --ig-bg:#fff;--ig-text:#0a0a0a;--ig-text-soft:#737373;--ig-text-dim:#a8a8a8;
+  --ig-border:#dbdbdb;--ig-img-bg:#fafafa;--ig-link:#00376b;
+}
+
+html,body{height:100%;overflow:hidden}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+
+/* HEADER */
+header{
+  padding:14px 20px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;flex-shrink:0;
+}
+.logo{width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));flex-shrink:0}
+header h1{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;letter-spacing:.06em}
+header span{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);margin-left:auto}
+
+/* LAYOUT */
+.main{display:grid;grid-template-columns:340px 1fr;flex:1;overflow:hidden}
+
+/* PANEL */
+.panel{
+  padding:18px;border-right:1px solid var(--border);
+  overflow-y:auto;display:flex;flex-direction:column;gap:16px;
+}
+.panel::-webkit-scrollbar{width:3px}
+.panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+.sec-label{
+  font-size:10px;font-weight:600;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:8px;
+}
+
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:12px;color:var(--muted)}
+
+input[type=text],input[type=number],textarea{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;padding:9px 12px;color:var(--text);
+  font-family:'DM Sans',sans-serif;font-size:14px;outline:none;
+  transition:border-color .15s;width:100%;
+}
+input:focus,textarea:focus{border-color:rgba(224,64,251,.5)}
+textarea{resize:none;min-height:86px;line-height:1.5}
+
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.divider{height:1px;background:var(--border)}
+
+/* AVATAR ROW */
+.avatar-row{display:flex;align-items:center;gap:12px}
+.avatar-upload{
+  width:52px;height:52px;border-radius:50%;
+  border:1px dashed var(--border);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;overflow:hidden;position:relative;flex-shrink:0;
+  transition:border-color .15s;
+}
+.avatar-upload:hover{border-color:var(--accent)}
+.avatar-upload input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.avatar-upload img{width:100%;height:100%;object-fit:cover;display:none}
+.avatar-upload .av-ph{font-size:18px;color:var(--muted)}
+.avatar-fields{flex:1;display:flex;flex-direction:column;gap:7px}
+
+/* CAROUSEL UPLOAD */
+.carousel-manager{display:flex;flex-direction:column;gap:10px}
+.carousel-thumbs{
+  display:flex;flex-wrap:wrap;gap:6px;
+  min-height:60px;
+}
+.thumb-item{
+  width:56px;height:56px;border-radius:6px;
+  position:relative;flex-shrink:0;cursor:pointer;
+  border:2px solid transparent;transition:border-color .15s;overflow:hidden;
+}
+.thumb-item.active{border-color:var(--accent)}
+.thumb-item img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb-del{
+  position:absolute;top:2px;right:2px;
+  width:16px;height:16px;border-radius:50%;
+  background:rgba(0,0,0,.75);color:#fff;
+  font-size:9px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;line-height:1;
+}
+.thumb-add{
+  width:56px;height:56px;border-radius:6px;
+  border:1px dashed var(--border);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  cursor:pointer;position:relative;gap:2px;
+  transition:border-color .15s,background .15s;flex-shrink:0;
+}
+.thumb-add:hover{border-color:var(--accent);background:rgba(224,64,251,.04)}
+.thumb-add input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.thumb-add span{font-size:18px;color:var(--muted);line-height:1}
+.thumb-add p{font-size:9px;color:var(--muted)}
+.carousel-hint{font-size:11px;color:var(--muted)}
+
+/* SIZE TABS */
+.size-tabs{display:flex;gap:4px;background:var(--surface2);padding:3px;border-radius:8px}
+.size-tab{
+  flex:1;padding:6px 4px;border-radius:6px;font-size:11px;font-weight:500;
+  text-align:center;cursor:pointer;color:var(--muted);transition:all .12s;user-select:none;
+}
+.size-tab.active{background:var(--surface3);color:var(--text);border:1px solid var(--border)}
+
+/* TOGGLE */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0}
+.toggle-row span{font-size:13px;color:var(--muted)}
+.toggle{
+  width:34px;height:18px;background:var(--surface2);border-radius:9px;
+  cursor:pointer;position:relative;transition:background .2s;border:1px solid var(--border);
+}
+.toggle.on{background:var(--accent);border-color:var(--accent)}
+.toggle::after{
+  content:'';position:absolute;width:12px;height:12px;border-radius:50%;
+  background:white;top:2px;left:2px;transition:left .2s;
+}
+.toggle.on::after{left:18px}
+
+/* ACTION BAR */
+.action-bar{display:flex;flex-direction:column;gap:7px}
+.btn-dl{
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:white;border:none;border-radius:var(--r);padding:13px;
+  font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;
+  cursor:pointer;width:100%;transition:opacity .2s,transform .1s;
+}
+.btn-dl:hover{opacity:.9}
+.btn-dl:active{transform:scale(.98)}
+.btn-copy{
+  background:var(--surface2);color:var(--muted);
+  border:1px solid var(--border);border-radius:var(--r);
+  padding:11px;font-family:'DM Sans',sans-serif;font-size:13px;
+  cursor:pointer;width:100%;transition:all .2s;
+}
+.btn-copy:hover{border-color:var(--muted);color:var(--text)}
+
+/* PREVIEW */
+.preview-area{
+  display:flex;
+  /* `safe center` => 內容超出時自動切回 flex-start，可正常往上滾動 */
+  align-items:safe center;justify-content:safe center;
+  padding:28px;background:#0a0a0a;overflow:auto;
+}
+
+/* PHONE FRAME */
+.phone-wrapper{position:relative;margin:auto 0}
+
+/* 預設無手機外框，預覽 = 純 IG card */
+.phone-frame-chrome{display:none}
+
+/* 開啟手機外框後 ===== */
+.with-phone-frame{
+  padding:60px 12px 30px;          /* 上邊框較高（給狀態列+動態島），下邊框較低（給 home indicator） */
+  background:#0b0b0d;
+  border-radius:54px;
+  /* 機身金屬邊+內陰影 */
+  box-shadow:
+    0 0 0 2px #2a2a2d,             /* 中框 */
+    0 0 0 4px #0b0b0d,              /* 黑色側邊 */
+    0 0 0 5px #3a3a3d,             /* 外金屬框 */
+    0 30px 60px -10px rgba(0,0,0,.6),
+    inset 0 0 0 1px rgba(255,255,255,.04);
+  position:relative;
+}
+.with-phone-frame #ig-card{border-radius:6px;overflow:hidden}
+.with-phone-frame .phone-frame-chrome{display:block}
+
+/* 動態島 (Dynamic Island) */
+.phone-island{
+  position:absolute;top:14px;left:50%;transform:translateX(-50%);
+  width:118px;height:33px;border-radius:20px;
+  background:#000;
+  box-shadow:inset 0 0 0 1px #1a1a1a;
+  z-index:5;
+}
+
+/* 頂部狀態列 (時間 / 訊號 / WiFi / 電量) */
+.phone-statusbar{
+  position:absolute;top:0;left:0;right:0;height:54px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 32px 0;
+  font-family:-apple-system,'SF Pro Text',BlinkMacSystemFont,sans-serif;
+  font-size:15px;font-weight:600;color:#fff;
+  pointer-events:none;
+}
+.phone-statusbar .sb-time{letter-spacing:-.2px}
+.phone-statusbar .sb-right{display:flex;align-items:center;gap:5px}
+.phone-statusbar svg{display:block}
+
+/* 底部 Home Indicator */
+.phone-home{
+  position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
+  width:134px;height:5px;border-radius:3px;background:#fff;
+  opacity:.92;
+}
+
+/* 側邊實體鍵 */
+.phone-btn{position:absolute;background:#1d1d1f;border-radius:2px;box-shadow:inset 1px 0 0 rgba(255,255,255,.05)}
+.phone-btn.silent  {left:-7px;top:88px; width:4px;height:28px}
+.phone-btn.vol-up  {left:-7px;top:128px;width:4px;height:54px}
+.phone-btn.vol-down{left:-7px;top:194px;width:4px;height:54px}
+.phone-btn.power   {right:-7px;top:140px;width:4px;height:80px;
+  box-shadow:inset -1px 0 0 rgba(255,255,255,.05)}
+
+/* ===== PHONE SCREEN (scrollable inside frame) ===== */
+.phone-screen{display:block;background:var(--ig-bg);width:390px}
+.with-phone-frame{
+  width:414px;height:880px;
+  display:flex;flex-direction:column;align-items:stretch;
+}
+.with-phone-frame .phone-screen{
+  flex:1;overflow-y:auto;overflow-x:hidden;
+  scrollbar-width:none;border-radius:6px;
+  scroll-behavior:smooth;
+  -webkit-overflow-scrolling:touch;
+}
+.with-phone-frame .phone-screen::-webkit-scrollbar{display:none}
+
+/* ===== MODE CONTAINERS ===== */
+.mode-view{display:none}
+.mode-view.active{display:block}
+
+/* ===== REELS ===== */
+.ig-reels{
+  width:390px;height:693px;background:#000;color:#fff;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  position:relative;overflow:hidden;
+}
+.reels-media{position:absolute;inset:0;background:#0a0a0a}
+.reels-media img{width:100%;height:100%;object-fit:cover;display:block}
+.reels-placeholder{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:10px;
+  color:#666;font-size:13px;letter-spacing:.02em;
+}
+.reels-placeholder svg{opacity:.5}
+
+/* progress bar 上方播放進度 */
+.reels-progress{
+  position:absolute;top:0;left:0;right:0;height:2px;z-index:5;
+  display:flex;gap:3px;padding:6px 10px 0;
+}
+.reels-progress .seg{
+  flex:1;height:2px;border-radius:1px;
+  background:rgba(255,255,255,.28);overflow:hidden;
+}
+.reels-progress .seg::after{
+  content:'';display:block;height:100%;background:#fff;width:0%;
+  transition:width .2s linear;
+}
+.reels-progress .seg.done::after{width:100%}
+.reels-progress .seg.cur::after{width:38%}
+
+.reels-top{
+  position:absolute;top:10px;left:0;right:0;z-index:3;
+  padding:14px 16px 28px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(to bottom,rgba(0,0,0,.55),transparent);
+  color:#fff;
+}
+.reels-top-left{display:flex;align-items:center;gap:14px}
+.reels-top h2{font-size:17px;font-weight:600;display:flex;align-items:center;gap:5px}
+.reels-top h2::after{content:'▾';font-size:11px;opacity:.85;margin-left:-2px}
+.reels-top-right{display:flex;align-items:center;gap:16px}
+.reels-top svg{stroke:#fff;fill:none;stroke-width:1.7;width:22px;height:22px}
+.reels-tab-pill{
+  font-size:12px;font-weight:600;color:#fff;opacity:.7;
+  padding:3px 0;border-bottom:1.5px solid transparent;
+}
+.reels-tab-pill.on{opacity:1;border-bottom-color:#fff}
+
+.reels-right{
+  position:absolute;right:10px;bottom:96px;z-index:4;
+  display:flex;flex-direction:column;align-items:center;gap:18px;
+}
+.reels-right .ra{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:default}
+.reels-right .ra svg{width:28px;height:28px;fill:none;stroke:#fff;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round;
+  filter:drop-shadow(0 1px 3px rgba(0,0,0,.7));
+}
+.reels-right .ra.liked svg{fill:#ff3040;stroke:#ff3040}
+.reels-right .ra span{font-size:11px;font-weight:600;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.reels-album{
+  width:28px;height:28px;border-radius:6px;
+  background:#222;border:1.5px solid #fff;overflow:hidden;
+  animation:reels-spin 6s linear infinite;flex-shrink:0;
+}
+.reels-album.empty{
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;color:#fff;
+}
+.reels-album img{width:100%;height:100%;object-fit:cover;display:block}
+@keyframes reels-spin{to{transform:rotate(360deg)}}
+
+/* mute icon 右上角小圖示 */
+.reels-mute{
+  position:absolute;right:14px;top:60px;z-index:4;
+  width:30px;height:30px;border-radius:50%;
+  background:rgba(0,0,0,.45);
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(4px);
+}
+.reels-mute svg{width:15px;height:15px;fill:#fff;stroke:#fff;stroke-width:1.3}
+
+/* reels music pill - 參考真實 IG */
+.reels-music{
+  display:flex;align-items:center;gap:8px;
+  font-size:12px;color:#fff;
+  background:rgba(0,0,0,.35);backdrop-filter:blur(8px);
+  padding:6px 10px;border-radius:14px;
+  align-self:flex-start;max-width:calc(100% - 8px);
+  margin-top:2px;
+}
+.reels-music svg{width:13px;height:13px;fill:#fff;stroke:none;flex-shrink:0}
+
+.reels-bottom{
+  position:absolute;left:0;right:60px;bottom:0;z-index:3;
+  padding:30px 16px 14px;
+  background:linear-gradient(to top,rgba(0,0,0,.6),transparent);
+}
+.reels-user{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.ru-av{width:30px;height:30px;border-radius:50%;background:#333;
+  border:1.5px solid #fff;overflow:hidden;flex-shrink:0}
+.ru-av img{width:100%;height:100%;object-fit:cover;display:block}
+.ru-name{font-size:14px;font-weight:600;color:#fff;display:flex;align-items:center;gap:4px}
+.ru-name .verif{
+  width:13px;height:13px;border-radius:50%;
+  background:#3897f0;color:#fff;font-size:9px;font-weight:700;
+  display:inline-flex;align-items:center;justify-content:center;line-height:1;
+}
+.ru-dot{color:#fff;font-size:14px;opacity:.7;margin:0 1px}
+.ru-follow{font-size:12px;font-weight:600;color:#fff;
+  border:1.2px solid #fff;border-radius:5px;padding:2px 10px;background:transparent}
+.reels-caption-wrap{margin-bottom:8px;position:relative}
+.reels-caption{font-size:13px;color:#fff;line-height:1.5;
+  white-space:pre-wrap;word-break:break-word;
+  text-shadow:0 1px 2px rgba(0,0,0,.4);
+  display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;
+  overflow:hidden;cursor:pointer;
+}
+.reels-caption-wrap.expanded .reels-caption{-webkit-line-clamp:unset;display:block;max-height:200px;overflow-y:auto}
+.reels-caption-wrap .more-inline{color:#ddd;font-weight:600;font-size:13px;opacity:.85}
+.reels-followed{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.reels-followed-avs{display:flex}
+.reels-followed-avs span{
+  width:18px;height:18px;border-radius:50%;
+  border:1.5px solid #000;background:#666;margin-left:-6px;
+  background-size:cover;background-position:center;
+}
+.reels-followed-avs span:first-child{margin-left:0}
+.reels-music-marquee{
+  flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:500;
+}
+.reels-user-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.reels-user-info{display:flex;align-items:center;gap:6px;flex:1;min-width:0}
+
+/* swipe up hint */
+.reels-swipe-hint{
+  position:absolute;left:50%;transform:translateX(-50%);
+  bottom:4px;color:rgba(255,255,255,.35);
+  font-size:10px;letter-spacing:.1em;z-index:4;
+  display:flex;flex-direction:column;align-items:center;gap:0;
+  pointer-events:none;
+}
+.reels-swipe-hint svg{width:10px;height:10px;stroke:rgba(255,255,255,.4);
+  fill:none;stroke-width:2;animation:swipe-up 1.6s ease-in-out infinite;
+}
+@keyframes swipe-up{
+  0%,100%{transform:translateY(0);opacity:.4}
+  50%{transform:translateY(-3px);opacity:.85}
+}
+
+/* ===== PROFILE ===== */
+.ig-profile{
+  width:390px;background:var(--ig-bg);color:var(--ig-text);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+.pf-top{
+  display:flex;align-items:center;padding:10px 14px;gap:14px;
+}
+.pf-top .pf-handle{font-size:17px;font-weight:600;flex:1;display:flex;align-items:center;gap:4px}
+.pf-top .pf-handle .verif{
+  width:14px;height:14px;border-radius:50%;
+  background:#3897f0;color:#fff;font-size:9px;font-weight:700;
+  display:inline-flex;align-items:center;justify-content:center;line-height:1;
+}
+.pf-top .pf-handle::after{content:"▾";font-size:11px;opacity:.6;margin-left:2px}
+.pf-top .pf-icon{font-size:21px;line-height:1;color:var(--ig-text);padding:0 2px;cursor:default}
+.pf-top .pf-icon svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.7;display:block}
+
+.pf-header{display:flex;align-items:center;padding:6px 14px 14px;gap:24px}
+.pf-avatar{
+  width:84px;height:84px;border-radius:50%;
+  padding:2.5px;flex-shrink:0;position:relative;
+  background:var(--ig-border);
+}
+.pf-avatar.has-story{
+  background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#bc1888);
+}
+.pf-avatar > img{
+  width:100%;height:100%;border-radius:50%;
+  border:2px solid var(--ig-bg);object-fit:cover;background:#333;display:block;
+}
+.pf-avatar .pf-plus{
+  position:absolute;bottom:-2px;right:-2px;
+  width:22px;height:22px;border-radius:50%;
+  background:#0095f6;color:#fff;font-size:16px;font-weight:300;
+  display:flex;align-items:center;justify-content:center;
+  border:2px solid var(--ig-bg);line-height:1;
+}
+.pf-stats{flex:1;display:flex;justify-content:space-around;text-align:center}
+.pf-stat{cursor:default}
+.pf-stat .pf-num{font-size:17px;font-weight:600;display:block}
+.pf-stat .pf-lab{font-size:13px;color:var(--ig-text);font-weight:400}
+
+.pf-bio{padding:0 14px 12px;font-size:13px;color:var(--ig-text);line-height:1.45}
+.pf-bio .pf-name{font-weight:600;margin-bottom:2px;font-size:14px;display:flex;align-items:center;gap:4px}
+.pf-bio .pf-name .verif{
+  width:14px;height:14px;border-radius:50%;
+  background:#3897f0;color:#fff;font-size:9px;font-weight:700;
+  display:inline-flex;align-items:center;justify-content:center;line-height:1;
+}
+.pf-bio .pf-cat{color:var(--ig-text-soft);font-size:12px;display:block;margin-bottom:4px}
+.pf-bio .pf-text{white-space:pre-wrap;word-break:break-word}
+.pf-bio .pf-link{color:var(--ig-link);font-weight:500;display:block;margin-top:4px;text-decoration:none}
+.pf-bio .pf-followed-by{
+  color:var(--ig-text-soft);font-size:12px;margin-top:6px;
+  display:flex;align-items:center;gap:6px;
+}
+.pf-bio .pf-fb-avs{display:flex}
+.pf-bio .pf-fb-avs span{
+  width:18px;height:18px;border-radius:50%;
+  border:1.5px solid var(--ig-bg);background:#666;
+  margin-left:-6px;
+}
+.pf-bio .pf-fb-avs span:first-child{margin-left:0}
+
+.pf-actions{padding:0 14px 12px;display:flex;gap:6px}
+.pf-actions button{
+  flex:1;padding:7px 10px;border-radius:8px;font-size:13px;font-weight:600;
+  background:var(--ig-img-bg);color:var(--ig-text);
+  border:1px solid var(--ig-border);cursor:default;font-family:inherit;
+}
+.pf-actions button.primary{background:#0095f6;color:#fff;border-color:#0095f6}
+.pf-actions button.following{background:var(--ig-img-bg);color:var(--ig-text);
+  border-color:var(--ig-border);display:flex;align-items:center;justify-content:center;gap:6px}
+.pf-actions button.following::after{content:'▾';font-size:10px}
+.pf-actions button.icon-btn{flex:0 0 auto;padding:7px 12px}
+
+.pf-highlights{
+  display:flex;gap:14px;padding:6px 14px 14px;overflow-x:auto;
+  scrollbar-width:none;
+}
+.pf-highlights::-webkit-scrollbar{display:none}
+.pf-hl{display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;width:64px;cursor:default}
+.pf-hl .hl-circle{
+  width:62px;height:62px;border-radius:50%;
+  border:1.5px solid var(--ig-border);
+  background:var(--ig-img-bg);overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;color:var(--ig-text-soft);
+}
+.pf-hl .hl-circle img{width:100%;height:100%;object-fit:cover}
+.pf-hl span{font-size:11px;color:var(--ig-text);text-align:center;
+  max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.pf-tabs{display:flex;border-top:1px solid var(--ig-border);position:sticky;top:0;background:var(--ig-bg);z-index:2}
+.pf-tab{
+  flex:1;padding:9px;text-align:center;cursor:pointer;
+  border-bottom:1.5px solid transparent;color:var(--ig-text-soft);
+  display:flex;align-items:center;justify-content:center;
+  transition:color .15s,border-color .15s;
+}
+.pf-tab.active{color:var(--ig-text);border-bottom-color:var(--ig-text)}
+.pf-tab svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.6}
+
+.pf-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:2px;background:var(--ig-bg);
+}
+.pf-grid.is-reels-grid{gap:2px}
+.pf-cell{
+  aspect-ratio:4/5;background:var(--ig-img-bg);overflow:hidden;position:relative;cursor:default;
+}
+.pf-grid.is-reels-grid .pf-cell{aspect-ratio:9/16}
+.pf-cell img{width:100%;height:100%;object-fit:cover;display:block}
+.pf-cell.empty{
+  display:flex;align-items:center;justify-content:center;
+  color:var(--ig-text-dim);font-size:11px;
+}
+/* type badge (top-right) */
+.pf-cell .pf-type{
+  position:absolute;top:6px;right:6px;
+  color:#fff;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));
+  display:flex;align-items:center;gap:3px;
+}
+.pf-cell .pf-type svg{width:15px;height:15px;fill:#fff;stroke:#fff;stroke-width:1.2}
+/* pin badge (top-right, overrides type icon) */
+.pf-cell .pf-pin{
+  position:absolute;top:7px;right:7px;
+  color:#fff;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));
+}
+.pf-cell .pf-pin svg{width:16px;height:16px;fill:#fff;stroke:none}
+/* reels play count bottom-left */
+.pf-cell .pf-views{
+  position:absolute;bottom:6px;left:6px;
+  color:#fff;font-size:12px;font-weight:600;
+  display:flex;align-items:center;gap:3px;
+  text-shadow:0 1px 2px rgba(0,0,0,.5);
+}
+.pf-cell .pf-views svg{width:13px;height:13px;fill:#fff}
+
+/* tagged tab empty state */
+.pf-tagged-empty{
+  display:flex;flex-direction:column;align-items:center;
+  text-align:center;padding:50px 30px;gap:14px;
+  border-top:1px solid var(--ig-border);
+}
+.pf-tagged-empty .tg-circle{
+  width:62px;height:62px;border-radius:50%;
+  border:2px solid var(--ig-text);
+  display:flex;align-items:center;justify-content:center;
+}
+.pf-tagged-empty .tg-circle svg{width:30px;height:30px;fill:none;stroke:var(--ig-text);stroke-width:1.7}
+.pf-tagged-empty h3{font-size:22px;font-weight:700;color:var(--ig-text);letter-spacing:.5px}
+.pf-tagged-empty p{font-size:14px;color:var(--ig-text-soft);max-width:240px;line-height:1.4}
+
+/* ---- Post slot config (profile) ---- */
+.post-slots{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.post-slot{
+  position:relative;aspect-ratio:4/5;border-radius:6px;
+  background:var(--surface2);border:1px solid var(--border);
+  overflow:hidden;
+}
+.post-slot .ps-thumb{position:absolute;inset:0;background:var(--surface2);overflow:hidden}
+.post-slot .ps-thumb img{width:100%;height:100%;object-fit:cover;display:block;opacity:.85}
+.post-slot .ps-thumb .ps-empty{
+  width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+  color:var(--muted);font-size:10px;
+}
+.post-slot .ps-num{
+  position:absolute;top:3px;left:4px;font-size:9px;color:#fff;
+  background:rgba(0,0,0,.55);padding:1px 5px;border-radius:6px;font-weight:600;z-index:2;
+}
+.post-slot .ps-ctrl{
+  position:absolute;bottom:0;left:0;right:0;
+  display:flex;justify-content:center;gap:3px;
+  padding:4px 3px;background:linear-gradient(to top,rgba(0,0,0,.78),transparent);
+  z-index:2;
+}
+.post-slot .ps-btn{
+  width:22px;height:22px;border-radius:5px;
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:#fff;transition:all .15s;padding:0;
+}
+.post-slot .ps-btn svg{width:13px;height:13px;fill:#fff;stroke:#fff;stroke-width:1.5}
+.post-slot .ps-btn.on{background:var(--accent);border-color:var(--accent)}
+.post-slot .ps-btn.disabled{opacity:.3;cursor:not-allowed}
+.post-slot.is-pinned{outline:2px solid var(--accent);outline-offset:-2px}
+
+/* ---- Highlights edit ---- */
+.hl-list{display:flex;flex-direction:column;gap:8px}
+.hl-item{
+  display:flex;align-items:center;gap:8px;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;padding:6px;
+}
+.hl-item .hl-cover{
+  width:38px;height:38px;border-radius:50%;
+  border:1px dashed var(--border);position:relative;
+  cursor:pointer;overflow:hidden;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--muted);font-size:14px;
+}
+.hl-item .hl-cover img{width:100%;height:100%;object-fit:cover}
+.hl-item .hl-cover input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.hl-item input[type=text]{flex:1;padding:6px 9px;font-size:12px}
+.hl-item .hl-del{
+  cursor:pointer;color:var(--muted);font-size:14px;padding:0 6px;
+  background:none;border:none;line-height:1;
+}
+.hl-item .hl-del:hover{color:#ff5470}
+.hl-add{
+  background:var(--surface2);border:1px dashed var(--border);
+  border-radius:8px;padding:8px;cursor:pointer;text-align:center;
+  color:var(--muted);font-size:12px;
+}
+.hl-add:hover{border-color:var(--accent);color:var(--text)}
+.hl-count-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+.hl-count-row input[type=range]{flex:1}
+.hl-count-row .hl-count-val{
+  font-family:'Space Mono',monospace;font-size:12px;color:var(--text);
+  min-width:18px;text-align:right;
+}
+
+/* mode-aware panel section visibility */
+.panel-section[data-show]{display:none}
+body[data-mode="post"] .panel-section[data-show~="post"],
+body[data-mode="reels"] .panel-section[data-show~="reels"],
+body[data-mode="profile"] .panel-section[data-show~="profile"]{display:block}
+
+/* IG CARD */
+#ig-card{
+  width:390px;background:var(--ig-bg);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  overflow:hidden;position:relative;
+  color:var(--ig-text);
+}
+
+.ig-topbar{
+  display:flex;align-items:center;padding:10px 14px;gap:10px;
+  background:var(--ig-bg);border-bottom:1px solid var(--ig-border);
+}
+.ig-av-ring{
+  width:34px;height:34px;border-radius:50%;padding:2px;flex-shrink:0;
+  background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);
+}
+.ig-av{
+  width:100%;height:100%;border-radius:50%;border:2px solid var(--ig-bg);
+  object-fit:cover;background:#333;display:block;
+}
+.ig-user-info{flex:1;overflow:hidden}
+.ig-username{font-size:13px;font-weight:600;color:var(--ig-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ig-subtitle{font-size:11px;color:var(--ig-text-soft)}
+.ig-more{color:var(--ig-text);font-size:18px;letter-spacing:2px;padding:0 4px;line-height:1}
+
+/* IMAGE + CAROUSEL */
+.ig-img-wrap{
+  width:390px;background:var(--ig-img-bg);position:relative;overflow:hidden;
+}
+.ig-carousel-track{
+  display:flex;transition:transform .28s cubic-bezier(.4,0,.2,1);
+  width:100%;height:100%;
+}
+.ig-slide{
+  min-width:100%;height:100%;flex-shrink:0;display:flex;
+  align-items:center;justify-content:center;
+}
+.ig-slide img{
+  width:100%;height:100%;object-fit:cover;display:block;
+}
+.ig-placeholder{
+  width:390px;height:390px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:8px;
+  color:var(--ig-text-dim);font-size:13px;background:var(--ig-img-bg);
+}
+
+/* carousel counter */
+.ig-counter{
+  position:absolute;top:12px;right:14px;
+  background:rgba(0,0,0,.55);color:#fff;
+  font-size:12px;font-weight:600;
+  padding:3px 9px;border-radius:20px;
+  backdrop-filter:blur(4px);
+  display:none;
+}
+
+/* carousel arrows */
+.ig-arrow{
+  position:absolute;top:50%;transform:translateY(-50%);
+  width:28px;height:28px;border-radius:50%;
+  background:rgba(255,255,255,.9);
+  display:none;align-items:center;justify-content:center;
+  cursor:pointer;border:none;
+  font-size:16px;line-height:1;color:#000;
+  transition:opacity .15s;z-index:5;
+}
+.ig-arrow:hover{opacity:.8}
+.ig-arrow.left{left:10px}
+.ig-arrow.right{right:10px}
+
+/* carousel dots - 放在照片下方（圖片內，置中） */
+.ig-img-dots{
+  position:absolute;left:50%;bottom:10px;transform:translateX(-50%);
+  display:none;gap:4px;pointer-events:none;z-index:4;
+  padding:4px 8px;border-radius:12px;
+}
+.ig-img-dots.show{display:flex}
+.ig-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:rgba(255,255,255,.55);transition:all .2s;
+  box-shadow:0 0 4px rgba(0,0,0,.35);
+}
+.ig-dot.active{background:#3b9eff;}
+
+/* actions */
+.ig-actions{
+  display:flex;align-items:center;padding:10px 14px 8px;gap:14px;
+  background:var(--ig-bg);position:relative;
+}
+.ig-act{display:flex;align-items:center;gap:5px}
+.ig-act-count{font-size:13px;color:var(--ig-text)}
+.ig-save{margin-left:auto}
+.ig-act svg{width:24px;height:24px;fill:none;stroke:var(--ig-text);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;cursor:default}
+
+.ig-likes{padding:0 14px 6px;font-size:13px;font-weight:600;color:var(--ig-text);background:var(--ig-bg)}
+.ig-caption{
+  padding:2px 14px 10px;font-size:13px;color:var(--ig-text);
+  line-height:1.5;white-space:pre-wrap;word-break:break-word;background:var(--ig-bg);
+}
+.ig-caption .cap-user{font-weight:700;margin-right:5px}
+.ig-ht{color:var(--ig-link)}
+.ig-comments{padding:0 14px 4px;font-size:12px;color:var(--ig-text-soft);background:var(--ig-bg)}
+.ig-time{padding:4px 14px 14px;font-size:10px;color:var(--ig-text-dim);text-transform:uppercase;letter-spacing:.04em;background:var(--ig-bg)}
+
+/* ===== RWD ===== */
+@media(max-width:768px){
+  html,body{height:auto;overflow:auto}
+  .main{grid-template-columns:1fr;overflow:visible}
+  .panel{border-right:none;border-bottom:1px solid var(--border);overflow-y:visible}
+  .preview-area{padding:20px 16px;min-height:500px;align-items:safe flex-start}
+  #ig-card{width:100%;max-width:390px}
+  .ig-img-wrap{width:100%}
+  .ig-placeholder{width:100%}
+  input[type=text],input[type=number],textarea{font-size:16px!important}
+  .action-bar{
+    position:sticky;bottom:0;
+    background:var(--bg);border-top:1px solid var(--border);
+    padding:12px 16px;
+    flex-direction:row;z-index:100;
+  }
+  .btn-dl{flex:2}
+  .btn-copy{flex:1}
+}
+@media(max-width:400px){.row2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"></div>
+  <h1>IG PREVIEW TOOL</h1>
+  <span>v2.0</span>
+</header>
+
+<div class="main">
+<div class="panel">
+
+  <!-- 模式 -->
+  <div>
+    <div class="sec-label">預覽模式</div>
+    <div class="size-tabs" id="modeTabs">
+      <div class="size-tab active" data-mode="post">貼文</div>
+      <div class="size-tab" data-mode="reels">Reels</div>
+      <div class="size-tab" data-mode="profile">個人頁</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 帳號 -->
+  <div class="panel-section" data-show="post reels profile">
+    <div class="sec-label">帳號資訊</div>
+    <div class="avatar-row">
+      <div class="avatar-upload" id="avZone">
+        <input type="file" accept="image/*" id="avInput">
+        <img id="avPrev" alt="">
+        <span class="av-ph" id="avIcon">＋</span>
+      </div>
+      <div class="avatar-fields">
+        <input type="text" id="usernameInput" placeholder="username">
+        <input type="text" id="subtitleInput" placeholder="贊助內容（可留空）">
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 輪播圖 -->
+  <div class="panel-section" data-show="post reels profile">
+    <div class="sec-label" id="imgSecLabel">貼文圖片 <span style="color:var(--muted);font-size:10px;text-transform:none;letter-spacing:0">（最多 20 張）</span></div>
+    <div class="carousel-manager">
+      <div class="carousel-thumbs" id="thumbsWrap">
+        <div class="thumb-add" id="addThumb">
+          <input type="file" accept="image/*" id="imgInput" multiple>
+          <span>＋</span>
+          <p>新增圖片</p>
+        </div>
+      </div>
+      <p class="carousel-hint" id="carouselHint" style="display:none">點縮圖切換圖片・點 × 刪除</p>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 文案 -->
+  <div class="panel-section" data-show="post reels">
+    <div class="sec-label">貼文內容</div>
+    <div class="field">
+      <label>文案（支援 #hashtag @mention）</label>
+      <textarea id="captionInput" placeholder="寫下你的文案..."></textarea>
+    </div>
+    <div class="row2" style="margin-top:10px">
+      <div class="field"><label>愛心數</label><input type="number" id="likesInput" value="1284"></div>
+      <div class="field"><label>留言數</label><input type="number" id="commentsInput" value="42"></div>
+    </div>
+    <div class="field" style="margin-top:10px">
+      <label>時間標記</label>
+      <input type="text" id="timeInput" value="2 HOURS AGO">
+    </div>
+  </div>
+
+  <!-- Reels 專用 -->
+  <div class="panel-section" data-show="reels">
+    <div class="sec-label">Reels 設定</div>
+    <div class="field">
+      <label>音樂 / 原創音訊</label>
+      <input type="text" id="reelsMusicInput" value="原創音訊 · username">
+    </div>
+    <div class="row2" style="margin-top:10px">
+      <div class="field"><label>轉發次數</label><input type="text" id="reelsRepostsInput" value="22"></div>
+      <div class="field"><label>分享次數</label><input type="text" id="reelsSharesInput" value="318"></div>
+    </div>
+    <div class="toggle-row" style="margin-top:6px">
+      <span>已按讚</span>
+      <div class="toggle" id="reelsLikedToggle"></div>
+    </div>
+    <div class="toggle-row">
+      <span>顯示靜音圖示</span>
+      <div class="toggle on" id="reelsMuteToggle"></div>
+    </div>
+    <div class="toggle-row">
+      <span>顯示認證徽章</span>
+      <div class="toggle" id="reelsVerifToggle"></div>
+    </div>
+    <div class="toggle-row">
+      <span>顯示「追蹤中的人也追蹤」</span>
+      <div class="toggle" id="reelsFollowedToggle"></div>
+    </div>
+  </div>
+
+  <!-- Profile 專用 -->
+  <div class="panel-section" data-show="profile">
+    <div class="sec-label">個人頁資料</div>
+    <div class="field">
+      <label>顯示名稱</label>
+      <input type="text" id="pfNameInput" value="Display Name">
+    </div>
+    <div class="field" style="margin-top:8px">
+      <label>類別（可留空）</label>
+      <input type="text" id="pfCatInput" placeholder="例：創作者">
+    </div>
+    <div class="field" style="margin-top:8px">
+      <label>簡介</label>
+      <textarea id="pfBioInput" placeholder="寫一段關於你..." style="min-height:60px"></textarea>
+    </div>
+    <div class="field" style="margin-top:8px">
+      <label>連結（可留空）</label>
+      <input type="text" id="pfLinkInput" placeholder="example.com">
+    </div>
+    <div class="row2" style="margin-top:10px">
+      <div class="field"><label>貼文數</label><input type="number" id="pfPostsInput" value="128"></div>
+      <div class="field"><label>粉絲數</label><input type="number" id="pfFollowersInput" value="5234"></div>
+    </div>
+    <div class="field" style="margin-top:8px">
+      <label>追蹤中</label>
+      <input type="number" id="pfFollowingInput" value="312">
+    </div>
+
+    <div class="sec-label" style="margin-top:14px">個人頁選項</div>
+    <div class="field">
+      <label>頂部按鈕模式</label>
+      <div class="size-tabs" id="pfActionModeTabs">
+        <div class="size-tab active" data-action="follow">追蹤</div>
+        <div class="size-tab" data-action="following">追蹤中</div>
+        <div class="size-tab" data-action="edit">編輯個人檔案</div>
+      </div>
+    </div>
+    <div class="toggle-row" style="margin-top:6px">
+      <span>限時動態圈（彩色邊）</span>
+      <div class="toggle on" id="pfStoryToggle"></div>
+    </div>
+    <div class="toggle-row">
+      <span>顯示認證徽章</span>
+      <div class="toggle" id="pfVerifToggle"></div>
+    </div>
+    <div class="toggle-row">
+      <span>顯示「也追蹤了…」</span>
+      <div class="toggle" id="pfFbToggle"></div>
+    </div>
+
+    <div class="sec-label" style="margin-top:14px">貼文設定 <span style="color:var(--muted);font-size:10px;text-transform:none;letter-spacing:0">（釘選最多 3 張）</span></div>
+    <div class="post-slots" id="postSlotsWrap"></div>
+    <p class="carousel-hint" style="margin-top:6px">釘選優先，釘選時無法加輪播 / Reels 圖示。</p>
+
+    <div class="sec-label" style="margin-top:14px">精選動態</div>
+    <div class="hl-list" id="hlList"></div>
+    <div class="hl-count-row">
+      <label style="font-size:12px;color:var(--muted)">顯示則數</label>
+      <input type="range" id="hlCount" min="0" max="10" value="4">
+      <span class="hl-count-val" id="hlCountVal">4</span>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 格式 -->
+  <div class="panel-section" data-show="post">
+    <div class="sec-label">圖片比例</div>
+    <div class="size-tabs" id="sizeTabs">
+      <div class="size-tab active" data-ratio="1:1">1:1</div>
+      <div class="size-tab" data-ratio="4:5">4:5</div>
+      <div class="size-tab" data-ratio="16:9">16:9</div>
+      <div class="size-tab" data-ratio="9:16">9:16</div>
+    </div>
+  </div>
+
+  <!-- 顯示選項 -->
+  <div>
+    <div class="sec-label">顯示選項</div>
+    <div class="toggle-row">
+      <span>手機外框</span>
+      <div class="toggle" id="phoneToggle"></div>
+    </div>
+    <div class="toggle-row">
+      <span>淺色模式</span>
+      <div class="toggle" id="themeToggle"></div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="action-bar">
+    <button class="btn-dl" id="downloadBtn">⬇ 下載圖片</button>
+    <button class="btn-copy" id="copyBtn">複製</button>
+  </div>
+
+</div><!-- /panel -->
+
+<!-- 預覽 -->
+<div class="preview-area">
+  <div class="phone-wrapper" id="phoneWrapper">
+    <div class="phone-screen" id="phoneScreen">
+
+    <div id="ig-card" class="mode-view active">
+
+      <div class="ig-topbar">
+        <div class="ig-av-ring"><img class="ig-av" id="igAv" alt="" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%23333'/%3E%3C/svg%3E"></div>
+        <div class="ig-user-info">
+          <div class="ig-username" id="igUsername">username</div>
+          <div class="ig-subtitle" id="igSubtitle" style="display:none"></div>
+        </div>
+        <div class="ig-more">···</div>
+      </div>
+
+      <div class="ig-img-wrap" id="igImgWrap">
+        <div class="ig-placeholder" id="igPlaceholder">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+          <span>上傳圖片預覽</span>
+        </div>
+        <div class="ig-carousel-track" id="igTrack" style="display:none"></div>
+        <div class="ig-img-dots" id="igImgDots"></div>
+        <div class="ig-counter" id="igCounter"></div>
+        <button class="ig-arrow left" id="arrowL">‹</button>
+        <button class="ig-arrow right" id="arrowR">›</button>
+      </div>
+
+      <div class="ig-actions">
+        <div class="ig-act">
+          <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          <span class="ig-act-count" id="igLikesCount">1,284</span>
+        </div>
+        <div class="ig-act">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.253 2 11.5c0 2.304.86 4.41 2.28 6.032L3 21l3.666-1.174A10.06 10.06 0 0012 21c5.523 0 10-4.253 10-9.5S17.523 2 12 2z"/></svg>
+          <span class="ig-act-count" id="igCmtCount">42</span>
+        </div>
+        <div class="ig-act">
+          <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </div>
+        <div class="ig-act ig-save">
+          <svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
+        </div>
+      </div>
+
+      <div class="ig-likes" id="igLikes">1,284 個讚</div>
+      <div class="ig-caption" id="igCaption"><span class="cap-user" id="igCapUser">username</span><span id="igCapText"></span></div>
+      <div class="ig-comments" id="igComments">查看全部 42 則留言</div>
+      <div class="ig-time" id="igTime">2 HOURS AGO</div>
+
+    </div><!-- /ig-card -->
+
+    <!-- ===== REELS ===== -->
+    <div id="ig-reels" class="ig-reels mode-view">
+      <div class="reels-media" id="reelsMedia">
+        <div class="reels-placeholder" id="reelsPlaceholder">
+          <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="1.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span>上傳圖片作為 Reels 背景</span>
+        </div>
+      </div>
+
+      <!-- Reels 頂部不需要進度條（那是限時動態的） -->
+
+      <div class="reels-top">
+        <div class="reels-top-left">
+          <h2>Reels</h2>
+        </div>
+        <div class="reels-top-right">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="4"/><path d="M5 7h3l2-3h4l2 3h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z"/></svg>
+          <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </div>
+      </div>
+
+      <!-- 靜音圖示 -->
+      <div class="reels-mute" id="reelsMute">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="#fff"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+      </div>
+
+      <div class="reels-right">
+        <div class="ra" id="reelsLikeBtn">
+          <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          <span id="reelsLikes">1,284</span>
+        </div>
+        <div class="ra">
+          <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span id="reelsCmts">42</span>
+        </div>
+        <div class="ra">
+          <svg viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          <span id="reelsReposts">22</span>
+        </div>
+        <div class="ra">
+          <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          <span id="reelsShares">318</span>
+        </div>
+        <div class="ra">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+        </div>
+        <div class="reels-album empty" id="reelsAlbum">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M9 17V5l12-2v12"/><circle cx="6" cy="17" r="3"/><circle cx="18" cy="15" r="3"/></svg>
+        </div>
+      </div>
+
+      <div class="reels-bottom">
+        <div class="reels-user-row">
+          <div class="ru-av"><img id="reelsAv" alt="" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%23333'/%3E%3C/svg%3E"></div>
+          <div class="reels-user-info">
+            <span class="ru-name"><span id="reelsUser">username</span><span class="verif" id="reelsVerif" style="display:none">✓</span></span>
+          </div>
+          <span class="ru-follow">追蹤</span>
+        </div>
+        <div class="reels-followed" id="reelsFollowed" style="display:none">
+          <div class="reels-followed-avs"><span></span><span></span></div>
+          <span id="reelsFollowedText">puju0306和另外 1 人都在追蹤</span>
+        </div>
+        <div class="reels-caption-wrap" id="reelsCaptionWrap">
+          <div class="reels-caption" id="reelsCaption"></div>
+          <div class="more-inline" id="reelsMore" style="display:none">…更多</div>
+        </div>
+        <div class="reels-music">
+          <svg viewBox="0 0 24 24"><path d="M9 17V5l12-2v12M9 17a3 3 0 1 1-6 0 3 3 0 0 1 6 0zm12-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/></svg>
+          <div class="reels-music-marquee"><span id="reelsMusic">原創音訊 · username</span></div>
+        </div>
+      </div>
+
+      <div class="reels-swipe-hint">
+        <svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>
+        <span>滑動</span>
+      </div>
+    </div><!-- /ig-reels -->
+
+    <!-- ===== PROFILE ===== -->
+    <div id="ig-profile" class="ig-profile mode-view">
+      <div class="pf-top">
+        <span class="pf-handle"><span id="pfHandle">username</span><span class="verif" id="pfHandleVerif" style="display:none">✓</span></span>
+        <span class="pf-icon" title="新增">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        </span>
+        <span class="pf-icon" title="選單">
+          <svg viewBox="0 0 24 24"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+        </span>
+      </div>
+      <div class="pf-header">
+        <div class="pf-avatar has-story" id="pfAvatarWrap">
+          <img id="pfAvatar" alt="" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%23333'/%3E%3C/svg%3E">
+        </div>
+        <div class="pf-stats">
+          <div class="pf-stat"><span class="pf-num" id="pfPosts">128</span><span class="pf-lab">貼文</span></div>
+          <div class="pf-stat"><span class="pf-num" id="pfFollowers">5,234</span><span class="pf-lab">粉絲</span></div>
+          <div class="pf-stat"><span class="pf-num" id="pfFollowing">312</span><span class="pf-lab">追蹤中</span></div>
+        </div>
+      </div>
+      <div class="pf-bio">
+        <div class="pf-name"><span id="pfName">Display Name</span><span class="verif" id="pfNameVerif" style="display:none">✓</span></div>
+        <span class="pf-cat" id="pfCat" style="display:none"></span>
+        <span class="pf-text" id="pfBioText"></span>
+        <a class="pf-link" id="pfLink" style="display:none" href="#"></a>
+        <div class="pf-followed-by" id="pfFollowedBy" style="display:none">
+          <div class="pf-fb-avs"><span></span><span></span><span></span></div>
+          <span>被 <b style="color:var(--ig-text);font-weight:600">friend_a</b>、<b style="color:var(--ig-text);font-weight:600">friend_b</b> 及其他 12 人追蹤</span>
+        </div>
+      </div>
+      <div class="pf-actions" id="pfActions">
+        <button class="primary" id="pfBtnPrimary">追蹤</button>
+        <button id="pfBtnSecondary">傳訊息</button>
+        <button class="icon-btn" id="pfBtnMore">▾</button>
+      </div>
+      <div class="pf-highlights" id="pfHighlights"></div>
+      <div class="pf-tabs" id="pfTabs">
+        <div class="pf-tab active" data-tab="grid">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        </div>
+        <div class="pf-tab" data-tab="reels">
+          <svg viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        </div>
+        <div class="pf-tab" data-tab="repost">
+          <svg viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        </div>
+        <div class="pf-tab" data-tab="tagged">
+          <svg viewBox="0 0 24 24"><path d="M20 12V7a2 2 0 0 0-2-2h-5l-3 3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12"/><circle cx="12" cy="13" r="2.5"/><path d="M9 19h6"/></svg>
+        </div>
+      </div>
+      <div class="pf-grid" id="pfGrid"></div>
+      <div class="pf-tagged-empty" id="pfTagged" style="display:none">
+        <div class="tg-circle">
+          <svg viewBox="0 0 24 24"><path d="M20 12V7a2 2 0 0 0-2-2h-5l-3 3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12"/><circle cx="12" cy="13" r="2.5"/></svg>
+        </div>
+        <h3 id="taggedTitle">有你的相片</h3>
+        <p id="taggedDesc">當有人在相片中標註你時，這些相片將顯示於此。</p>
+      </div>
+    </div><!-- /ig-profile -->
+
+    </div><!-- /phone-screen -->
+
+    <!-- 手機外框裝飾（toggle 開啟才顯示） -->
+    <div class="phone-frame-chrome">
+      <div class="phone-statusbar">
+        <span class="sb-time">9:41</span>
+        <div class="sb-right">
+          <!-- signal -->
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="#fff"><rect x="0" y="7" width="3" height="4" rx=".5"/><rect x="4.5" y="5" width="3" height="6" rx=".5"/><rect x="9" y="2.5" width="3" height="8.5" rx=".5"/><rect x="13.5" y="0" width="3" height="11" rx=".5"/></svg>
+          <!-- wifi -->
+          <svg width="16" height="11" viewBox="0 0 16 11" fill="#fff"><path d="M8 10.5a1.3 1.3 0 1 0 0-2.6 1.3 1.3 0 0 0 0 2.6Zm-3.4-3.7a4.8 4.8 0 0 1 6.8 0l1.2-1.2a6.5 6.5 0 0 0-9.2 0l1.2 1.2Zm-2.7-2.7a8.6 8.6 0 0 1 12.2 0L15.3 2.9a10.3 10.3 0 0 0-14.6 0L1.9 4.1Z"/></svg>
+          <!-- battery -->
+          <svg width="27" height="12" viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="2.5" fill="none" stroke="#fff" stroke-opacity=".5"/><rect x="2" y="2" width="19" height="8" rx="1.2" fill="#fff"/><rect x="23.5" y="4" width="2" height="4" rx="1" fill="#fff" fill-opacity=".5"/></svg>
+        </div>
+      </div>
+      <div class="phone-island"></div>
+      <div class="phone-btn silent"></div>
+      <div class="phone-btn vol-up"></div>
+      <div class="phone-btn vol-down"></div>
+      <div class="phone-btn power"></div>
+      <div class="phone-home"></div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<script>
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+const state = {
+  images: [],   // [{url, id}]
+  currentIdx: 0,
+  ratio: '1:1',
+  phone: false,
+  mode: 'post',         // post | reels | profile
+  theme: 'dark',        // dark | light
+  avatarUrl: null,
+  // reels
+  reelsLiked: false,
+  reelsMute: true,
+  reelsVerif: false,
+  reelsFollowed: false,
+  // profile
+  pfTab: 'grid',        // grid | reels | repost | tagged
+  pfActionMode: 'follow', // follow | following | edit
+  pfStory: true,
+  pfVerif: false,
+  pfFb: false,
+  pfSlots: [
+    {pinned:true,  icon:''},
+    {pinned:false, icon:'carousel'},
+    {pinned:false, icon:'reels'},
+    {pinned:false, icon:''},
+    {pinned:false, icon:''},
+    {pinned:false, icon:''},
+    {pinned:false, icon:''},
+    {pinned:false, icon:''},
+    {pinned:false, icon:''},
+  ],
+  pfHighlights: [
+    {cover:null, name:'作品'},
+    {cover:null, name:'日常'},
+    {cover:null, name:'旅行'},
+    {cover:null, name:'夜晚'},
+  ],
+  pfHighlightCount: 4,
+};
+
+const ratioH = {'1:1':390,'4:5':488,'16:9':219,'9:16':693};
+
+// ---- UTILS ----
+function fmtNum(n){
+  const v=parseInt(n)||0;
+  if(v>=1e6) return (v/1e6).toFixed(1)+'M';
+  if(v>=1000) return (v/1000).toFixed(1).replace('.0','')+'K';
+  return v.toLocaleString();
+}
+function fmtCaption(t){
+  if(!t) return '';
+  return t
+    .replace(/#([^\s#\uff03]+)/g,'<span class="ig-ht">#$1</span>')
+    .replace(/@([^\s@\uff20]+)/g,'<span class="ig-ht">@$1</span>');
+}
+
+// ---- RENDER CAROUSEL ----
+function renderCarousel(){
+  const track = document.getElementById('igTrack');
+  const placeholder = document.getElementById('igPlaceholder');
+  const counter = document.getElementById('igCounter');
+  const arrowL = document.getElementById('arrowL');
+  const arrowR = document.getElementById('arrowR');
+  const dotsEl = document.getElementById('igImgDots');
+  const wrap = document.getElementById('igImgWrap');
+  const h = ratioH[state.ratio];
+
+  wrap.style.height = h+'px';
+  placeholder.style.height = h+'px';
+
+  if(state.images.length === 0){
+    placeholder.style.display = 'flex';
+    track.style.display = 'none';
+    counter.style.display = 'none';
+    arrowL.style.display = 'none';
+    arrowR.style.display = 'none';
+    dotsEl.classList.remove('show');
+    return;
+  }
+
+  placeholder.style.display = 'none';
+  track.style.display = 'flex';
+
+  // build slides
+  track.innerHTML = state.images.map((img,i)=>
+    `<div class="ig-slide"><img src="${img.url}" alt=""></div>`
+  ).join('');
+
+  // translate
+  track.style.transform = `translateX(-${state.currentIdx * 100}%)`;
+
+  const multiple = state.images.length > 1;
+
+  // counter
+  if(multiple){
+    counter.style.display = 'block';
+    counter.textContent = `${state.currentIdx+1} / ${state.images.length}`;
+  } else {
+    counter.style.display = 'none';
+  }
+
+  // arrows
+  arrowL.style.display = (multiple && state.currentIdx > 0) ? 'flex' : 'none';
+  arrowR.style.display = (multiple && state.currentIdx < state.images.length-1) ? 'flex' : 'none';
+
+  // dots
+  if(multiple){
+    dotsEl.classList.add('show');
+    dotsEl.innerHTML = state.images.map((_,i)=>
+      `<div class="ig-dot ${i===state.currentIdx?'active':''}"></div>`
+    ).join('');
+  } else {
+    dotsEl.classList.remove('show');
+    dotsEl.innerHTML='';
+  }
+}
+
+// ---- RENDER THUMBS ----
+function renderThumbs(){
+  const wrap = document.getElementById('thumbsWrap');
+  const hint = document.getElementById('carouselHint');
+  const addBtn = document.getElementById('addThumb');
+
+  // remove existing thumbs (not addBtn)
+  wrap.querySelectorAll('.thumb-item').forEach(el=>el.remove());
+
+  state.images.forEach((img,i)=>{
+    const item = document.createElement('div');
+    item.className = 'thumb-item'+(i===state.currentIdx?' active':'');
+    item.innerHTML = `<img src="${img.url}" alt=""><div class="thumb-del">×</div>`;
+    item.querySelector('img').onclick = ()=>{state.currentIdx=i;syncThumbs();renderCarousel()};
+    item.querySelector('.thumb-del').onclick = (e)=>{
+      e.stopPropagation();
+      state.images.splice(i,1);
+      if(state.currentIdx>=state.images.length) state.currentIdx=Math.max(0,state.images.length-1);
+      renderThumbs();renderCarousel();
+      renderProfileGrid();renderReelsMedia();renderPostSlots();
+    };
+    wrap.insertBefore(item, addBtn);
+  });
+
+  hint.style.display = state.images.length>0 ? 'block' : 'none';
+  addBtn.style.display = state.images.length>=20 ? 'none' : 'flex';
+}
+
+function syncThumbs(){
+  document.querySelectorAll('.thumb-item').forEach((el,i)=>{
+    el.classList.toggle('active', i===state.currentIdx);
+  });
+}
+
+// ---- UPDATE TEXT ----
+function update(){
+  const username = document.getElementById('usernameInput').value||'username';
+  const subtitle = document.getElementById('subtitleInput').value;
+  const likes = document.getElementById('likesInput').value;
+  const comments = document.getElementById('commentsInput').value;
+  const time = document.getElementById('timeInput').value;
+
+  document.getElementById('igUsername').textContent = username;
+  document.getElementById('igCapUser').textContent = username;
+
+  const subEl = document.getElementById('igSubtitle');
+  subEl.textContent = subtitle;
+  subEl.style.display = subtitle ? '' : 'none';
+
+  document.getElementById('igCapText').innerHTML = fmtCaption(document.getElementById('captionInput').value);
+
+  const lf = fmtNum(likes);
+  const cf = fmtNum(comments);
+  document.getElementById('igLikes').textContent = lf+' 個讚';
+  document.getElementById('igLikesCount').textContent = lf;
+  document.getElementById('igCmtCount').textContent = cf;
+  document.getElementById('igComments').textContent = '查看全部 '+cf+' 則留言';
+  document.getElementById('igTime').textContent = time;
+
+  // ---- Reels ----
+  document.getElementById('reelsUser').textContent = username;
+  document.getElementById('reelsLikes').textContent = lf;
+  document.getElementById('reelsCmts').textContent = cf;
+  document.getElementById('reelsShares').textContent = fmtNum(document.getElementById('reelsSharesInput').value);
+  document.getElementById('reelsReposts').textContent = fmtNum(document.getElementById('reelsRepostsInput').value);
+  // 文案 - 折疊邏輯
+  const cap = document.getElementById('captionInput').value;
+  const capEl = document.getElementById('reelsCaption');
+  const wrapCap = document.getElementById('reelsCaptionWrap');
+  const moreEl = document.getElementById('reelsMore');
+  capEl.innerHTML = fmtCaption(cap);
+  if(!wrapCap.classList.contains('expanded')){
+    // 計算是否裁切
+    requestAnimationFrame(()=>{
+      const overflowing = capEl.scrollHeight - capEl.clientHeight > 1;
+      moreEl.style.display = (overflowing && cap.length>0) ? 'inline' : 'none';
+    });
+  } else {
+    moreEl.style.display='none';
+  }
+  const music = document.getElementById('reelsMusicInput').value || ('原創音訊 · '+username);
+  document.getElementById('reelsMusic').textContent = music;
+
+
+  // ---- Profile ----
+  document.getElementById('pfHandle').textContent = username;
+  const pfName = document.getElementById('pfNameInput').value || username;
+  document.getElementById('pfName').textContent = pfName;
+  document.getElementById('pfHandleVerif').style.display = state.pfVerif ? 'inline-flex' : 'none';
+  document.getElementById('pfNameVerif').style.display = state.pfVerif ? 'inline-flex' : 'none';
+  document.getElementById('pfFollowedBy').style.display = state.pfFb ? 'flex' : 'none';
+  document.getElementById('pfAvatarWrap').classList.toggle('has-story', state.pfStory);
+
+  const pfCat = document.getElementById('pfCatInput').value;
+  const pfCatEl = document.getElementById('pfCat');
+  pfCatEl.textContent = pfCat;
+  pfCatEl.style.display = pfCat ? 'block' : 'none';
+
+  document.getElementById('pfBioText').textContent = document.getElementById('pfBioInput').value;
+
+  const link = document.getElementById('pfLinkInput').value;
+  const linkEl = document.getElementById('pfLink');
+  linkEl.textContent = link;
+  linkEl.style.display = link ? 'block' : 'none';
+
+  document.getElementById('pfPosts').textContent = fmtNum(document.getElementById('pfPostsInput').value);
+  document.getElementById('pfFollowers').textContent = fmtNum(document.getElementById('pfFollowersInput').value);
+  document.getElementById('pfFollowing').textContent = fmtNum(document.getElementById('pfFollowingInput').value);
+}
+
+// ---- ICON STRINGS for grid badges ----
+const ICON_CAROUSEL = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6"><rect x="7" y="3" width="14" height="14" rx="2"/><path d="M17 17v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2"/></svg>';
+const ICON_VIDEO = '<svg viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7" fill="#fff"/><rect x="1" y="5" width="15" height="14" rx="2" fill="none" stroke="#fff" stroke-width="1.6"/></svg>';
+const ICON_REELS = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6"><polygon points="6 3 18 3 22 9 2 9 6 3"/><path d="M2 9v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9"/><polygon points="10 12 16 15 10 18 10 12" fill="#fff" stroke="none"/></svg>';
+const ICON_PIN = '<svg viewBox="0 0 24 24" fill="#fff"><path d="M14 4l6 6-4 1-3 6-3-3-4 4v-6L4 8l6-4z"/></svg>';
+const ICON_PLAY = '<svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+
+// post-type pattern (loops) — small variety on the grid
+const PATTERN = ['','carousel','video','','reels','','carousel','','video','reels','','','carousel','','reels'];
+
+function getCellType(i){
+  // first slot can be pinned; types come from PATTERN
+  return PATTERN[i % PATTERN.length] || '';
+}
+
+// random-ish view count (deterministic per index)
+function viewsFor(i){
+  const base = [12.4,8.7,156,23.1,4.2,89.5,1.3,67,210,5.8];
+  const v = base[i % base.length];
+  return v>=100 ? Math.round(v)+'K' : v+'K';
+}
+
+// ---- RENDER PROFILE GRID ----
+function renderProfileGrid(){
+  const grid = document.getElementById('pfGrid');
+  const imgs = state.images;
+  grid.classList.toggle('is-reels-grid', state.pfTab==='reels');
+  const total = 9; // 最多 9 張
+  let html='';
+  for(let i=0;i<total;i++){
+    const slot = state.pfSlots[i] || {pinned:false, icon:''};
+    const isPinned = state.pfTab==='grid' && slot.pinned;
+    const icon = state.pfTab==='grid' ? slot.icon : (state.pfTab==='reels' ? 'reels' : '');
+    const cellInner = imgs[i]
+      ? `<img src="${imgs[i].url}" alt="">`
+      : `<div class="pf-cell empty" style="position:absolute;inset:0">${state.pfTab==='reels'?'Reel':'貼文'} ${i+1}</div>`;
+    let badges = '';
+    if(isPinned){
+      badges += `<div class="pf-pin">${ICON_PIN}</div>`;
+    } else if(icon==='carousel'){
+      badges += `<div class="pf-type">${ICON_CAROUSEL}</div>`;
+    } else if(icon==='reels'){
+      badges += `<div class="pf-type">${ICON_REELS}</div>`;
+    }
+    let views = '';
+    if(state.pfTab==='reels') views = `<div class="pf-views">${ICON_PLAY}<span>${viewsFor(i)}</span></div>`;
+    html += `<div class="pf-cell">${cellInner}${badges}${views}</div>`;
+  }
+  grid.innerHTML = html;
+}
+
+// ---- RENDER REELS MEDIA ----
+function renderReelsMedia(){
+  const wrap = document.getElementById('reelsMedia');
+  const ph = document.getElementById('reelsPlaceholder');
+  const album = document.getElementById('reelsAlbum');
+  wrap.querySelectorAll('img').forEach(el=>el.remove());
+  if(state.images.length===0){
+    ph.style.display='flex';
+    album.classList.add('empty');
+    album.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M9 17V5l12-2v12"/><circle cx="6" cy="17" r="3"/><circle cx="18" cy="15" r="3"/></svg>`;
+  } else {
+    ph.style.display='none';
+    const img = document.createElement('img');
+    img.src = state.images[0].url;
+    wrap.insertBefore(img, ph);
+    album.classList.remove('empty');
+    album.innerHTML = `<img src="${state.images[0].url}" alt="">`;
+  }
+  // 同步狀態裝飾
+  document.getElementById('reelsLikeBtn').classList.toggle('liked', state.reelsLiked);
+  document.getElementById('reelsMute').style.display = state.reelsMute ? 'flex' : 'none';
+  document.getElementById('reelsVerif').style.display = state.reelsVerif ? 'inline-flex' : 'none';
+}
+
+// ---- RENDER PROFILE ACTIONS ----
+function renderPfActions(){
+  const wrap = document.getElementById('pfActions');
+  const m = state.pfActionMode;
+  if(m==='follow'){
+    wrap.innerHTML = `
+      <button class="primary">追蹤</button>
+      <button>傳訊息</button>
+      <button class="icon-btn">▾</button>`;
+  } else if(m==='following'){
+    wrap.innerHTML = `
+      <button class="following">追蹤中</button>
+      <button>傳訊息</button>
+      <button class="icon-btn">＋</button>`;
+  } else {
+    wrap.innerHTML = `
+      <button style="flex:2">編輯個人檔案</button>
+      <button style="flex:2">分享個人檔案</button>
+      <button class="icon-btn">＋</button>`;
+  }
+}
+
+// ---- RENDER PROFILE TAB ----
+function renderPfTab(){
+  document.querySelectorAll('#pfTabs .pf-tab').forEach(t=>{
+    t.classList.toggle('active', t.dataset.tab===state.pfTab);
+  });
+  const grid = document.getElementById('pfGrid');
+  const tagged = document.getElementById('pfTagged');
+  if(state.pfTab==='tagged' || state.pfTab==='repost'){
+    grid.style.display='none'; tagged.style.display='flex';
+    const isRepost = state.pfTab==='repost';
+    document.getElementById('taggedTitle').textContent = isRepost ? '轉發貼文' : '有你的相片';
+    document.getElementById('taggedDesc').textContent = isRepost
+      ? '你轉發過的貼文將顯示於此。'
+      : '當有人在相片中標註你時，這些相片將顯示於此。';
+  } else {
+    grid.style.display='grid'; tagged.style.display='none';
+    renderProfileGrid();
+  }
+}
+
+// ---- RENDER HIGHLIGHTS (preview) ----
+function renderHighlights(){
+  const wrap = document.getElementById('pfHighlights');
+  const count = Math.min(state.pfHighlightCount, state.pfHighlights.length);
+  let html = `<div class="pf-hl"><div class="hl-circle">+</div><span>新增</span></div>`;
+  const emojis = ['✨','☕','✈','🌙','📷','🌸','🔥','🌿','🍓','⭐'];
+  for(let i=0;i<count;i++){
+    const h = state.pfHighlights[i];
+    const inner = h.cover ? `<img src="${h.cover}" alt="">` : emojis[i%emojis.length];
+    html += `<div class="pf-hl"><div class="hl-circle">${inner}</div><span>${(h.name||'精選').replace(/</g,'&lt;')}</span></div>`;
+  }
+  wrap.innerHTML = html;
+}
+
+// ---- RENDER PANEL: post slots ----
+function renderPostSlots(){
+  const wrap = document.getElementById('postSlotsWrap');
+  if(!wrap) return;
+  let html = '';
+  for(let i=0;i<9;i++){
+    const slot = state.pfSlots[i];
+    const img = state.images[i];
+    const thumb = img
+      ? `<img src="${img.url}" alt="">`
+      : `<div class="ps-empty">貼文 ${i+1}</div>`;
+    html += `<div class="post-slot ${slot.pinned?'is-pinned':''}" data-idx="${i}">
+      <div class="ps-thumb">${thumb}</div>
+      <div class="ps-num">#${i+1}</div>
+      <div class="ps-ctrl">
+        <button class="ps-btn ${slot.pinned?'on':''}" data-act="pin" title="釘選置頂">
+          <svg viewBox="0 0 24 24" fill="#fff" stroke="none"><path d="M14 4l6 6-4 1-3 6-3-3-4 4v-6L4 8l6-4z"/></svg>
+        </button>
+        <button class="ps-btn ${slot.pinned?'disabled':''} ${slot.icon==='carousel'?'on':''}" data-act="carousel" title="輪播">
+          <svg viewBox="0 0 24 24" fill="none"><rect x="7" y="3" width="14" height="14" rx="2"/><path d="M17 17v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2"/></svg>
+        </button>
+        <button class="ps-btn ${slot.pinned?'disabled':''} ${slot.icon==='reels'?'on':''}" data-act="reels" title="Reels">
+          <svg viewBox="0 0 24 24" fill="none"><polygon points="6 3 18 3 22 9 2 9 6 3"/><path d="M2 9v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9"/><polygon points="10 12 16 15 10 18 10 12" fill="#fff" stroke="none"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('.ps-btn').forEach(btn=>{
+    btn.onclick = (e)=>{
+      e.stopPropagation();
+      const idx = parseInt(btn.closest('.post-slot').dataset.idx);
+      const act = btn.dataset.act;
+      const slot = state.pfSlots[idx];
+      if(act==='pin'){
+        if(slot.pinned){
+          slot.pinned = false;
+        } else {
+          const pinnedCount = state.pfSlots.filter(s=>s.pinned).length;
+          if(pinnedCount>=3){ alert('釘選置頂最多 3 張'); return; }
+          slot.pinned = true;
+          slot.icon = '';
+        }
+      } else if(slot.pinned){
+        return;
+      } else {
+        slot.icon = (slot.icon===act) ? '' : act;
+      }
+      renderPostSlots();
+      renderProfileGrid();
+    };
+  });
+}
+
+// ---- RENDER PANEL: highlights editor ----
+function renderHighlightsPanel(){
+  const list = document.getElementById('hlList');
+  if(!list) return;
+  let html = '';
+  state.pfHighlights.forEach((h,i)=>{
+    html += `<div class="hl-item" data-i="${i}">
+      <label class="hl-cover">
+        ${h.cover?`<img src="${h.cover}">`:'✨'}
+        <input type="file" accept="image/*" data-act="cover" data-i="${i}">
+      </label>
+      <input type="text" value="${(h.name||'').replace(/"/g,'&quot;')}" data-act="name" data-i="${i}" placeholder="名稱">
+      <button class="hl-del" data-act="del" data-i="${i}">×</button>
+    </div>`;
+  });
+  html += `<div class="hl-add" id="hlAdd">＋ 新增精選動態</div>`;
+  list.innerHTML = html;
+
+  list.querySelectorAll('input[data-act="name"]').forEach(el=>{
+    el.oninput = ()=>{
+      state.pfHighlights[parseInt(el.dataset.i)].name = el.value;
+      renderHighlights();
+    };
+  });
+  list.querySelectorAll('input[data-act="cover"]').forEach(el=>{
+    el.onchange = function(){
+      const f = this.files[0]; if(!f) return;
+      const r = new FileReader();
+      r.onload = e=>{
+        state.pfHighlights[parseInt(this.dataset.i)].cover = e.target.result;
+        renderHighlightsPanel();
+        renderHighlights();
+      };
+      r.readAsDataURL(f);
+    };
+  });
+  list.querySelectorAll('button[data-act="del"]').forEach(btn=>{
+    btn.onclick = ()=>{
+      state.pfHighlights.splice(parseInt(btn.dataset.i),1);
+      if(state.pfHighlightCount > state.pfHighlights.length){
+        state.pfHighlightCount = state.pfHighlights.length;
+      }
+      renderHighlightsPanel();
+      renderHighlights();
+      updateHlCountUI();
+    };
+  });
+  document.getElementById('hlAdd').onclick = ()=>{
+    if(state.pfHighlights.length>=10){ alert('最多 10 則'); return; }
+    state.pfHighlights.push({cover:null, name:'精選'});
+    state.pfHighlightCount = state.pfHighlights.length;
+    renderHighlightsPanel();
+    renderHighlights();
+    updateHlCountUI();
+  };
+}
+function updateHlCountUI(){
+  const slider = document.getElementById('hlCount');
+  const val = document.getElementById('hlCountVal');
+  if(!slider) return;
+  slider.max = Math.max(1, state.pfHighlights.length);
+  if(state.pfHighlightCount > state.pfHighlights.length) state.pfHighlightCount = state.pfHighlights.length;
+  slider.value = state.pfHighlightCount;
+  val.textContent = state.pfHighlightCount;
+}
+
+// ---- RENDER MODE ----
+function renderMode(){
+  document.querySelectorAll('.mode-view').forEach(el=>el.classList.remove('active'));
+  const target = state.mode==='reels' ? 'ig-reels' : (state.mode==='profile' ? 'ig-profile' : 'ig-card');
+  document.getElementById(target).classList.add('active');
+  document.body.dataset.mode = state.mode;
+}
+
+// ---- EVENTS ----
+document.getElementById('avInput').onchange = function(){
+  const f=this.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=e=>{
+    state.avatarUrl=e.target.result;
+    document.getElementById('avPrev').src=e.target.result;
+    document.getElementById('avPrev').style.display='block';
+    document.getElementById('avIcon').style.display='none';
+    document.getElementById('igAv').src=e.target.result;
+    document.getElementById('reelsAv').src=e.target.result;
+    document.getElementById('pfAvatar').querySelector('img').src=e.target.result;
+  };
+  r.readAsDataURL(f);
+};
+
+document.getElementById('imgInput').onchange = function(){
+  const files = Array.from(this.files);
+  const remaining = 20 - state.images.length;
+  const toAdd = files.slice(0,remaining);
+  let loaded = 0;
+  const results = [];
+  toAdd.forEach((f,i)=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      results[i]={url:e.target.result,id:Date.now()+i};
+      loaded++;
+      if(loaded===toAdd.length){
+        state.images.push(...results);
+        if(state.currentIdx===0 && state.images.length===results.length){
+          state.currentIdx=0;
+        }
+        renderThumbs();
+        renderCarousel();
+        renderProfileGrid();
+        renderReelsMedia();
+        renderPostSlots();
+      }
+    };
+    r.readAsDataURL(f);
+  });
+  this.value='';
+};
+
+document.getElementById('arrowL').onclick = ()=>{
+  if(state.currentIdx>0){state.currentIdx--;syncThumbs();renderCarousel()}
+};
+document.getElementById('arrowR').onclick = ()=>{
+  if(state.currentIdx<state.images.length-1){state.currentIdx++;syncThumbs();renderCarousel()}
+};
+
+['usernameInput','subtitleInput','captionInput','likesInput','commentsInput','timeInput',
+ 'reelsMusicInput','reelsSharesInput','reelsRepostsInput',
+ 'pfNameInput','pfCatInput','pfBioInput','pfLinkInput',
+ 'pfPostsInput','pfFollowersInput','pfFollowingInput'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',update);
+});
+
+// Reels caption expand/collapse
+document.getElementById('reelsCaptionWrap').addEventListener('click', function(){
+  this.classList.toggle('expanded');
+  update();
+});
+
+bindToggle('reelsFollowedToggle','reelsFollowed',()=>{
+  document.getElementById('reelsFollowed').style.display = state.reelsFollowed?'flex':'none';
+});
+
+// profile tab switching
+document.querySelectorAll('#pfTabs .pf-tab').forEach(t=>{
+  t.onclick=function(){
+    state.pfTab=this.dataset.tab;
+    renderPfTab();
+  };
+});
+
+// profile action mode
+document.querySelectorAll('#pfActionModeTabs .size-tab').forEach(tab=>{
+  tab.onclick=function(){
+    document.querySelectorAll('#pfActionModeTabs .size-tab').forEach(t=>t.classList.remove('active'));
+    this.classList.add('active');
+    state.pfActionMode = this.dataset.action;
+    renderPfActions();
+  };
+});
+
+// generic toggle helper
+function bindToggle(id, stateKey, after){
+  const el = document.getElementById(id);
+  el.onclick = function(){
+    state[stateKey] = !state[stateKey];
+    this.classList.toggle('on', state[stateKey]);
+    if(after) after();
+  };
+}
+bindToggle('reelsLikedToggle','reelsLiked',()=>{
+  document.getElementById('reelsLikeBtn').classList.toggle('liked', state.reelsLiked);
+});
+bindToggle('reelsMuteToggle','reelsMute',()=>{
+  document.getElementById('reelsMute').style.display = state.reelsMute?'flex':'none';
+});
+bindToggle('reelsVerifToggle','reelsVerif',()=>{
+  document.getElementById('reelsVerif').style.display = state.reelsVerif?'inline-flex':'none';
+});
+bindToggle('pfStoryToggle','pfStory',()=>{
+  document.getElementById('pfAvatarWrap').classList.toggle('has-story', state.pfStory);
+});
+bindToggle('pfVerifToggle','pfVerif',()=>{
+  document.getElementById('pfHandleVerif').style.display = state.pfVerif?'inline-flex':'none';
+  document.getElementById('pfNameVerif').style.display = state.pfVerif?'inline-flex':'none';
+});
+bindToggle('pfFbToggle','pfFb',()=>{
+  document.getElementById('pfFollowedBy').style.display = state.pfFb?'flex':'none';
+});
+
+// highlights count slider
+document.getElementById('hlCount').oninput = function(){
+  state.pfHighlightCount = parseInt(this.value);
+  document.getElementById('hlCountVal').textContent = state.pfHighlightCount;
+  renderHighlights();
+};
+
+// mode tabs
+document.querySelectorAll('#modeTabs .size-tab').forEach(tab=>{
+  tab.onclick=function(){
+    document.querySelectorAll('#modeTabs .size-tab').forEach(t=>t.classList.remove('active'));
+    this.classList.add('active');
+    state.mode=this.dataset.mode;
+    renderMode();
+    if(state.mode==='profile'){renderPfTab();renderPfActions();}
+    if(state.mode==='reels') renderReelsMedia();
+    if(state.mode==='post') renderCarousel();
+  };
+});
+
+// theme toggle
+document.getElementById('themeToggle').onclick=function(){
+  state.theme = state.theme==='dark' ? 'light' : 'dark';
+  this.classList.toggle('on', state.theme==='light');
+  document.body.classList.toggle('ig-light', state.theme==='light');
+};
+
+document.querySelectorAll('#sizeTabs .size-tab').forEach(tab=>{
+  tab.onclick=function(){
+    document.querySelectorAll('#sizeTabs .size-tab').forEach(t=>t.classList.remove('active'));
+    this.classList.add('active');
+    state.ratio=this.dataset.ratio;
+    renderCarousel();
+  };
+});
+
+document.getElementById('phoneToggle').onclick=function(){
+  state.phone=!state.phone;
+  this.classList.toggle('on',state.phone);
+  document.getElementById('phoneWrapper').classList.toggle('with-phone-frame',state.phone);
+};
+
+// ---- EXPORT ----
+async function exportImg(){
+  const target = state.mode==='reels' ? 'ig-reels' : (state.mode==='profile' ? 'ig-profile' : 'ig-card');
+  const card=document.getElementById(target);
+  const bg = state.mode==='reels' ? '#000' : (state.theme==='light' ? '#ffffff' : '#000000');
+  return await html2canvas(card,{scale:2,useCORS:true,backgroundColor:bg,logging:false});
+}
+
+function showIOSModal(dataUrl){
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:16px;';
+  ov.innerHTML=`
+    <p style="color:#fff;font-size:15px;text-align:center;line-height:1.7;max-width:280px">長按下方圖片<br>選「儲存到相片」即可 📱</p>
+    <img src="${dataUrl}" style="max-width:100%;max-height:58vh;border-radius:10px;object-fit:contain;">
+    <button onclick="this.closest('div').remove()" style="padding:11px 36px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:20px;font-size:15px;cursor:pointer;">關閉</button>
+  `;
+  document.body.appendChild(ov);
+}
+
+document.getElementById('downloadBtn').onclick=async function(){
+  this.textContent='⏳ 處理中...';this.disabled=true;
+  try{
+    const canvas=await exportImg();
+    const url=canvas.toDataURL('image/png');
+    if(isIOS){
+      showIOSModal(url);
+    } else {
+      const a=document.createElement('a');
+      const name=document.getElementById('usernameInput').value||'ig';
+      a.download=`ig-preview-${name}-${Date.now()}.png`;
+      a.href=url;a.click();
+      this.textContent='✓ 下載完成！';
+      setTimeout(()=>{this.textContent='⬇ 下載圖片';this.disabled=false;},2000);
+      return;
+    }
+  }catch(e){}
+  this.textContent='⬇ 下載圖片';this.disabled=false;
+};
+
+document.getElementById('copyBtn').onclick=async function(){
+  this.textContent='⏳ 處理中...';
+  try{
+    const canvas=await exportImg();
+    if(isIOS){
+      showIOSModal(canvas.toDataURL('image/png'));
+      this.textContent='複製';
+    } else {
+      canvas.toBlob(async blob=>{
+        await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+        this.textContent='✓ 已複製！';
+        setTimeout(()=>{this.textContent='複製';},2000);
+      });
+    }
+  }catch(e){this.textContent='複製'}
+};
+
+// init
+document.body.dataset.mode = state.mode;
+update();
+renderCarousel();
+renderPfActions();
+renderPfTab();
+renderReelsMedia();
+renderMode();
+renderHighlights();
+renderHighlightsPanel();
+renderPostSlots();
+updateHlCountUI();
+</script>
+</body>
+</html>
