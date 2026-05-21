@@ -1,41 +1,49 @@
-<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>拼圖工具</title><style>
+<!DOCTYPE html><html lang="zh-TW"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>拼圖工具</title><style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font:14px sans-serif;padding:12px;background:#1a1a1a;color:#eee}
 .ctrl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
 label{display:flex;gap:6px;align-items:center;white-space:nowrap}
-input[type=number]{width:70px;padding:6px 4px;background:#333;color:#eee;border:1px solid #555;border-radius:4px;font-size:16px}
+input[type=number]{width:65px;padding:6px 4px;background:#333;color:#eee;border:1px solid #555;border-radius:4px;font-size:16px}
 button{padding:8px 14px;cursor:pointer;background:#4a9eff;color:#fff;border:none;border-radius:4px;font-size:14px;-webkit-tap-highlight-color:transparent}
-button:active{background:#2a7edf}
-#drop{border:2px dashed #555;border-radius:8px;padding:28px 16px;text-align:center;margin-bottom:12px;cursor:pointer;transition:.2s;font-size:15px}
+button:active{opacity:.75}
+#drop{border:2px dashed #555;border-radius:8px;padding:24px;text-align:center;margin-bottom:12px;cursor:pointer;transition:.2s}
 #drop.over{border-color:#4a9eff;background:#1e2a3a}
-#wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
-#preview{display:grid;gap:0;width:fit-content;background:#000}
-#preview img{display:block;width:100%;height:100%;object-fit:cover}
-@media(max-width:480px){
-  .ctrl{gap:8px}
-  input[type=number]{width:60px}
-  button{padding:8px 10px;font-size:13px}
-}
+/* 縮放預覽容器 */
+#scale-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:8px}
+#preview{display:grid;background:#000;transform-origin:top left}
+#preview img{display:block;width:100%;object-fit:cover;pointer-events:none}
+/* 縮圖列表（可排序） */
+#thumb-list{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.thumb{position:relative;cursor:grab;user-select:none;-webkit-user-select:none;border:2px solid transparent;border-radius:4px;overflow:hidden;touch-action:none}
+.thumb.drag-over{border-color:#4a9eff}
+.thumb.dragging{opacity:.4}
+.thumb img{display:block;width:80px;height:80px;object-fit:cover;pointer-events:none}
+.thumb .del{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
 </style></head><body>
+
 <div class="ctrl">
   <label>輸出寬度(px)<input id="w" type="number" value="1200" min="100"></label>
   <label>每列幾張<input id="cols" type="number" value="3" min="1"></label>
   <label>間距(px)<input id="gap" type="number" value="0" min="0"></label>
-  <button onclick="render()">🔄 重新排列</button>
-  <button onclick="dl()">⬇ 下載圖片</button>
-  <button onclick="imgs=[];document.getElementById('preview').innerHTML='';updateInfo()">🗑 清除</button>
+  <button onclick="render()">🔄 排列</button>
+  <button onclick="dl()">⬇ 下載</button>
+  <button onclick="clearAll()">🗑 清除</button>
   <span id="info" style="color:#888"></span>
 </div>
+
 <div id="drop">拖曳圖片到這裡，或點擊選取</div>
-<div id="wrap"><div id="preview"></div></div>
+<div id="thumb-list"></div>
+<div id="scale-wrap"><div id="preview"></div></div>
 
 <input id="fi" type="file" accept="image/*" multiple style="display:none">
 <canvas id="c" style="display:none"></canvas>
 
 <script>
-let imgs=[];
-const drop=document.getElementById('drop'),fi=document.getElementById('fi');
+let imgs=[], dragSrc=null, touchDragEl=null, touchClone=null, touchTarget=null;
 
+const drop=document.getElementById('drop'), fi=document.getElementById('fi');
 drop.onclick=()=>fi.click();
 fi.onchange=e=>load([...e.target.files]);
 drop.ondragover=e=>{e.preventDefault();drop.classList.add('over')};
@@ -43,19 +51,99 @@ drop.ondragleave=()=>drop.classList.remove('over');
 drop.ondrop=e=>{e.preventDefault();drop.classList.remove('over');load([...e.dataTransfer.files])};
 
 function load(files){
-  files.filter(f=>f.type.startsWith('image/')).forEach(f=>{
+  let done=0;
+  const valid=files.filter(f=>f.type.startsWith('image/'));
+  if(!valid.length)return;
+  valid.forEach(f=>{
     const r=new FileReader();
     r.onload=e=>{
       const img=new Image();
-      img.onload=()=>{imgs.push(img);updateInfo();render()};
+      img.onload=()=>{imgs.push(img);done++;if(done===valid.length){buildThumbs();render()}};
       img.src=e.target.result;
     };
     r.readAsDataURL(f);
   });
 }
 
+function clearAll(){imgs=[];document.getElementById('thumb-list').innerHTML='';document.getElementById('preview').innerHTML='';document.getElementById('info').textContent=''}
+
 function updateInfo(){document.getElementById('info').textContent=`共 ${imgs.length} 張`}
 
+/* ── 縮圖列表 ── */
+function buildThumbs(){
+  const list=document.getElementById('thumb-list');
+  list.innerHTML='';
+  imgs.forEach((img,i)=>{
+    const div=document.createElement('div');
+    div.className='thumb';
+    div.dataset.i=i;
+    const t=document.createElement('img');
+    t.src=img.src;
+    const btn=document.createElement('button');
+    btn.className='del';btn.textContent='×';
+    btn.onclick=e=>{e.stopPropagation();imgs.splice(i,1);buildThumbs();render()};
+    div.appendChild(t);div.appendChild(btn);
+    // Desktop drag
+    div.draggable=true;
+    div.ondragstart=e=>{dragSrc=i;div.classList.add('dragging');e.dataTransfer.effectAllowed='move'};
+    div.ondragend=()=>div.classList.remove('dragging');
+    div.ondragover=e=>{e.preventDefault();div.classList.add('drag-over')};
+    div.ondragleave=()=>div.classList.remove('drag-over');
+    div.ondrop=e=>{e.preventDefault();div.classList.remove('drag-over');if(dragSrc!==null&&dragSrc!==i){reorder(dragSrc,i)}};
+    // Mobile touch
+    div.addEventListener('touchstart',onTouchStart,{passive:false});
+    list.appendChild(div);
+  });
+  updateInfo();
+}
+
+function reorder(from,to){
+  const tmp=imgs.splice(from,1)[0];
+  imgs.splice(to,0,tmp);
+  buildThumbs();render();
+}
+
+/* ── Touch drag ── */
+function onTouchStart(e){
+  if(e.touches.length>1)return;
+  e.preventDefault();
+  touchDragEl=e.currentTarget;
+  const idx=+touchDragEl.dataset.i;
+  touchClone=touchDragEl.cloneNode(true);
+  const r=touchDragEl.getBoundingClientRect();
+  Object.assign(touchClone.style,{position:'fixed',opacity:.7,pointerEvents:'none',zIndex:9999,width:r.width+'px',height:r.height+'px',left:r.left+'px',top:r.top+'px'});
+  document.body.appendChild(touchClone);
+  touchDragEl.classList.add('dragging');
+  document.addEventListener('touchmove',onTouchMove,{passive:false});
+  document.addEventListener('touchend',onTouchEnd);
+}
+
+function onTouchMove(e){
+  e.preventDefault();
+  const t=e.touches[0];
+  touchClone.style.left=(t.clientX-40)+'px';
+  touchClone.style.top=(t.clientY-40)+'px';
+  touchClone.style.display='none';
+  const el=document.elementFromPoint(t.clientX,t.clientY);
+  touchClone.style.display='';
+  const over=el&&el.closest('.thumb');
+  document.querySelectorAll('.thumb').forEach(d=>d.classList.remove('drag-over'));
+  if(over&&over!==touchDragEl){over.classList.add('drag-over');touchTarget=over}else{touchTarget=null}
+}
+
+function onTouchEnd(){
+  document.removeEventListener('touchmove',onTouchMove);
+  document.removeEventListener('touchend',onTouchEnd);
+  if(touchClone)touchClone.remove();
+  document.querySelectorAll('.thumb').forEach(d=>d.classList.remove('drag-over','dragging'));
+  if(touchTarget){
+    const from=+touchDragEl.dataset.i, to=+touchTarget.dataset.i;
+    if(from!==to)reorder(from,to);
+  }
+  touchDragEl=touchClone=touchTarget=null;
+}
+
+/* ── 預覽（含縮放） ── */
 function render(){
   if(!imgs.length)return;
   const cols=+document.getElementById('cols').value||1;
@@ -66,16 +154,24 @@ function render(){
   p.style.gridTemplateColumns=`repeat(${cols},${cellW}px)`;
   p.style.gap=gap+'px';
   p.style.width=W+'px';
+  p.style.transform='';
   p.innerHTML='';
   imgs.forEach(img=>{
     const h=Math.round(img.naturalHeight*cellW/img.naturalWidth);
     const el=document.createElement('img');
-    el.src=img.src;
-    el.style.height=h+'px';
+    el.src=img.src;el.style.height=h+'px';
     p.appendChild(el);
+  });
+  // 縮放以符合螢幕
+  requestAnimationFrame(()=>{
+    const avail=document.getElementById('scale-wrap').clientWidth;
+    const scale=Math.min(1,avail/W);
+    p.style.transform=`scale(${scale})`;
+    p.style.marginBottom=(p.offsetHeight*(scale-1))+'px';
   });
 }
 
+/* ── 下載 ── */
 function dl(){
   if(!imgs.length)return;
   const cols=+document.getElementById('cols').value||1;
@@ -86,36 +182,20 @@ function dl(){
   const heights=[];
   for(let r=0;r<rows;r++){
     let maxH=0;
-    for(let c=0;c<cols;c++){
-      const i=r*cols+c;
-      if(i<imgs.length){
-        const h=Math.round(imgs[i].naturalHeight*cellW/imgs[i].naturalWidth);
-        maxH=Math.max(maxH,h);
-      }
-    }
+    for(let c=0;c<cols;c++){const i=r*cols+c;if(i<imgs.length)maxH=Math.max(maxH,Math.round(imgs[i].naturalHeight*cellW/imgs[i].naturalWidth))}
     heights.push(maxH);
   }
   const totalH=heights.reduce((a,b)=>a+b,0)+gap*Math.max(rows-1,0);
   const canvas=document.getElementById('c');
   canvas.width=W;canvas.height=totalH;
   const ctx=canvas.getContext('2d');
-  ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,totalH);
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,totalH);
   let y=0;
   for(let r=0;r<rows;r++){
-    for(let c=0;c<cols;c++){
-      const i=r*cols+c;
-      if(i<imgs.length){
-        const h=Math.round(imgs[i].naturalHeight*cellW/imgs[i].naturalWidth);
-        const x=c*(cellW+gap);
-        ctx.drawImage(imgs[i],x,y,cellW,h);
-      }
-    }
+    for(let c=0;c<cols;c++){const i=r*cols+c;if(i<imgs.length){const h=Math.round(imgs[i].naturalHeight*cellW/imgs[i].naturalWidth);ctx.drawImage(imgs[i],c*(cellW+gap),y,cellW,h)}}
     y+=heights[r]+gap;
   }
-  const a=document.createElement('a');
-  a.download='collage.png';
-  a.href=canvas.toDataURL('image/png');
-  a.click();
+  const a=document.createElement('a');a.download='collage.png';a.href=canvas.toDataURL('image/png');a.click();
 }
 </script>
 </body></html>
