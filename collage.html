@@ -2,18 +2,18 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>拼圖小工具@eachddmmyydesign</title><style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font:14px sans-serif;padding:12px;background:#1a1a1a;color:#eee}
+body{font:14px sans-serif;padding:12px;background:#E3E3E3;color:#1F1F1F}
 .ctrl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
 label{display:flex;gap:6px;align-items:center;white-space:nowrap}
 input[type=number]{width:65px;padding:6px 4px;background:#333;color:#eee;border:1px solid #555;border-radius:4px;font-size:16px}
 button{padding:8px 14px;cursor:pointer;background:#4a9eff;color:#fff;border:none;border-radius:4px;font-size:14px;-webkit-tap-highlight-color:transparent}
 button:active{opacity:.75}
-#drop{border:2px dashed #555;border-radius:8px;padding:24px;text-align:center;margin-bottom:12px;cursor:pointer;transition:.2s}
-#drop.over{border-color:#4a9eff;background:#1e2a3a}
+#drop{border:1px dashed #1F1F1F;border-radius:1px;padding:24px;text-align:center;margin-bottom:12px;cursor:pointer;transition:.2s}
+#drop.over{border-color:#1F1F1F;background:#A3A3A3}
 /* 縮放預覽容器 */
 #scale-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:8px}
 #preview{display:grid;background:#F2F2F2;transform-origin:top left}
-#preview img{display:block;width:70%;object-fit:cover;pointer-events:none}
+#preview img{display:block;width:100%;object-fit:cover;pointer-events:none}
 /* 縮圖列表（可排序） */
 #thumb-list{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
 .thumb{position:relative;cursor:grab;user-select:none;-webkit-user-select:none;border:1px solid transparent;border-radius:1px;overflow:hidden;touch-action:none}
