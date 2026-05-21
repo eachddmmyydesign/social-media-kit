@@ -16,18 +16,18 @@ button:active{opacity:.75}
 #preview img{display:block;width:70%;object-fit:cover;pointer-events:none}
 /* 縮圖列表（可排序） */
 #thumb-list{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
-.thumb{position:relative;cursor:grab;user-select:none;-webkit-user-select:none;border:2px solid transparent;border-radius:4px;overflow:hidden;touch-action:none}
-.thumb.drag-over{border-color:#4a9eff}
+.thumb{position:relative;cursor:grab;user-select:none;-webkit-user-select:none;border:1px solid transparent;border-radius:1px;overflow:hidden;touch-action:none}
+.thumb.drag-over{border-color:#fff}
 .thumb.dragging{opacity:.4}
 .thumb img{display:block;width:80px;height:80px;object-fit:cover;pointer-events:none}
-.thumb .del{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
+.thumb .del{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
 </style></head><body>
 
 <div class="ctrl">
   <label>輸出寬度(px)<input id="w" type="number" value="1200" min="100"></label>
-  <label>每列幾張<input id="cols" type="number" value="3" min="1"></label>
   <label>間距(px)<input id="gap" type="number" value="0" min="0"></label>
-  <button onclick="render()">🔄 重排</button>
+  <label>每列幾張<input id="cols" type="number" value="3" min="1"></label>
+  <button onclick="render()">🔄 重新排列</button>
   <button onclick="dl()">⬇️ 下載圖片</button>
   <button onclick="clearAll()">🗑 清除重置</button>
   <span id="info" style="color:#888"></span>
