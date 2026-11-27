@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>IG Preview Tool</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
@@ -726,24 +726,62 @@ body[data-mode="profile"] .panel-section[data-show~="profile"]{display:block}
 .ig-comments{padding:0 14px 4px;font-size:12px;color:var(--ig-text-soft);background:var(--ig-bg)}
 .ig-time{padding:4px 14px 14px;font-size:10px;color:var(--ig-text-dim);text-transform:uppercase;letter-spacing:.04em;background:var(--ig-bg)}
 
+/* ===== VIDEO ===== */
+.ig-slide{position:relative}
+.ig-slide video{width:100%;height:100%;object-fit:cover;display:block;background:#000}
+.ig-vid-sound{
+  position:absolute;right:12px;bottom:12px;z-index:4;
+  width:28px;height:28px;border-radius:50%;
+  background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+}
+.ig-vid-sound svg{width:14px;height:14px;fill:#fff;stroke:#fff;stroke-width:1.5}
+.reels-media video{width:100%;height:100%;object-fit:cover;display:block}
+.thumb-vid{
+  position:absolute;left:3px;bottom:3px;
+  background:rgba(0,0,0,.65);color:#fff;border-radius:4px;
+  font-size:9px;line-height:1;padding:2px 4px;pointer-events:none;
+}
+.upload-msg{font-size:11px;color:#ff7a8a;line-height:1.5}
+
 /* ===== RWD ===== */
+.btn-peek{display:none}
 @media(max-width:768px){
-  html,body{height:auto;overflow:auto}
+  html,body{height:auto;overflow:auto;overflow-x:hidden}
+  body{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+  header{padding:12px 16px}
   .main{grid-template-columns:1fr;overflow:visible}
-  .panel{border-right:none;border-bottom:1px solid var(--border);overflow-y:visible}
-  .preview-area{padding:20px 16px;min-height:500px;align-items:safe flex-start}
-  #ig-card{width:100%;max-width:390px}
-  .ig-img-wrap{width:100%}
-  .ig-placeholder{width:100%}
+  /* 手機版：預覽放最上面，編輯區在下面 */
+  .preview-area{order:1;padding:16px;min-height:0;overflow:hidden;
+    align-items:flex-start;justify-content:center;border-bottom:1px solid var(--border)}
+  .phone-wrapper{margin:0}
+  .panel{order:2;padding:16px;border-right:none;overflow-y:visible}
   input[type=text],input[type=number],textarea{font-size:16px!important}
+  /* 加大觸控區 */
+  .size-tab{min-height:40px;padding:8px 4px;font-size:13px;display:flex;align-items:center;justify-content:center}
+  .toggle-row{min-height:44px;cursor:pointer}
+  .toggle-row span{font-size:14px}
+  .toggle{width:44px;height:26px;border-radius:13px;flex-shrink:0}
+  .toggle::after{width:20px;height:20px;top:2px;left:2px}
+  .toggle.on::after{left:20px}
+  .thumb-item,.thumb-add{width:64px;height:64px}
+  .thumb-del{width:24px;height:24px;font-size:12px;top:3px;right:3px}
+  .post-slot .ps-ctrl{gap:4px}
+  .post-slot .ps-btn{width:28px;height:28px}
+  .hl-item .hl-cover{width:44px;height:44px}
+  .hl-item .hl-del{min-width:40px;min-height:40px;font-size:16px}
+  .hl-add{padding:12px;font-size:13px}
+  /* 下載列固定在畫面底部 */
   .action-bar{
-    position:sticky;bottom:0;
-    background:var(--bg);border-top:1px solid var(--border);
-    padding:12px 16px;
-    flex-direction:row;z-index:100;
+    position:fixed;left:0;right:0;bottom:0;z-index:100;
+    flex-direction:row;gap:8px;
+    background:rgba(14,14,14,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    border-top:1px solid var(--border);
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom));
   }
-  .btn-dl{flex:2}
+  .btn-dl{flex:2;padding:12px}
   .btn-copy{flex:1}
+  .btn-peek{display:block;flex:0 0 auto;width:auto;padding:11px 14px}
 }
 @media(max-width:400px){.row2{grid-template-columns:1fr}}
 </style>
@@ -791,16 +829,17 @@ body[data-mode="profile"] .panel-section[data-show~="profile"]{display:block}
 
   <!-- 輪播圖 -->
   <div class="panel-section" data-show="post reels profile">
-    <div class="sec-label" id="imgSecLabel">貼文圖片 <span style="color:var(--muted);font-size:10px;text-transform:none;letter-spacing:0">（最多 20 張）</span></div>
+    <div class="sec-label" id="imgSecLabel">貼文圖片 <span style="color:var(--muted);font-size:10px;text-transform:none;letter-spacing:0">（最多 20 個，圖片或影片）</span></div>
     <div class="carousel-manager">
       <div class="carousel-thumbs" id="thumbsWrap">
         <div class="thumb-add" id="addThumb">
-          <input type="file" accept="image/*" id="imgInput" multiple>
+          <input type="file" accept="image/*,video/*" id="imgInput" multiple>
           <span>＋</span>
-          <p>新增圖片</p>
+          <p>圖片/影片</p>
         </div>
       </div>
-      <p class="carousel-hint" id="carouselHint" style="display:none">點縮圖切換圖片・點 × 刪除</p>
+      <p class="carousel-hint" id="carouselHint" style="display:none">點縮圖切換・點 × 刪除・點預覽中的影片可開關聲音</p>
+      <p class="upload-msg" id="uploadMsg" style="display:none"></p>
     </div>
   </div>
 
@@ -946,6 +985,7 @@ body[data-mode="profile"] .panel-section[data-show~="profile"]{display:block}
   <div class="action-bar">
     <button class="btn-dl" id="downloadBtn">⬇ 下載圖片</button>
     <button class="btn-copy" id="copyBtn">複製</button>
+    <button class="btn-copy btn-peek" id="peekBtn" type="button">↑ 預覽</button>
   </div>
 
 </div><!-- /panel -->
@@ -1213,6 +1253,64 @@ const state = {
 
 const ratioH = {'1:1':390,'4:5':488,'16:9':219,'9:16':693};
 
+// ---- MEDIA (圖片 / 影片) ----
+const ICON_SOUND_OFF='<svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15" fill="none"/><line x1="17" y1="9" x2="23" y2="15" fill="none"/></svg>';
+const ICON_SOUND_ON='<svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" fill="none"/></svg>';
+const VIDEO_FALLBACK_POSTER="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 50'%3E%3Crect width='40' height='50' fill='%23222'/%3E%3Cpolygon points='16,19 27,25 16,31' fill='%23888'/%3E%3C/svg%3E";
+let videoSoundOn=false;
+
+function isVideoFile(f){
+  return (f.type||'').startsWith('video/') || /\.(mp4|mov|m4v|webm|3gp)$/i.test(f.name||'');
+}
+// 縮圖用（影片用封面）
+function thumbSrc(item){ return item.type==='video' ? item.poster : item.url; }
+// 預覽用（影片 = 自動播放、靜音、循環）
+function mediaHTML(item){
+  if(item.type==='video'){
+    return `<video src="${item.url}" poster="${item.poster}" muted loop playsinline autoplay preload="auto"></video>`;
+  }
+  return `<img src="${item.url}" alt="">`;
+}
+// 讀出影片第一個畫面當封面；格式不支援時回傳 null
+function makePoster(url){
+  return new Promise(res=>{
+    const v=document.createElement('video');
+    v.muted=true;v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';
+    let done=false;
+    const fin=d=>{ if(done) return; done=true; try{v.pause()}catch(e){} v.removeAttribute('src'); v.load(); res(d); };
+    v.addEventListener('loadeddata',()=>{
+      try{ v.pause(); v.currentTime=Math.min(0.1,(v.duration||1)/2); }catch(e){ fin(VIDEO_FALLBACK_POSTER); }
+    });
+    v.addEventListener('seeked',()=>{
+      try{
+        const s=Math.min(1,600/(v.videoWidth||600));
+        const c=document.createElement('canvas');
+        c.width=Math.max(1,Math.round(v.videoWidth*s));c.height=Math.max(1,Math.round(v.videoHeight*s));
+        c.getContext('2d').drawImage(v,0,0,c.width,c.height);
+        fin(c.toDataURL('image/jpeg',.85));
+      }catch(e){ fin(VIDEO_FALLBACK_POSTER); }
+    });
+    v.addEventListener('error',()=>fin(null));
+    setTimeout(()=>fin(VIDEO_FALLBACK_POSTER),8000);
+    v.src=url;
+    const p=v.play(); if(p&&p.catch) p.catch(()=>{});
+  });
+}
+function showUploadMsg(t){
+  const el=document.getElementById('uploadMsg');
+  el.textContent=t; el.style.display=t?'block':'none';
+}
+// 只讓目前這張輪播影片播放
+function syncCarouselVideos(){
+  document.querySelectorAll('#igTrack .ig-slide').forEach((s,i)=>{
+    const v=s.querySelector('video'); if(!v) return;
+    v.muted=!videoSoundOn;
+    const icon=s.querySelector('.ig-vid-sound'); if(icon) icon.innerHTML=videoSoundOn?ICON_SOUND_ON:ICON_SOUND_OFF;
+    if(i===state.currentIdx && state.mode==='post'){ const p=v.play(); if(p&&p.catch) p.catch(()=>{}); }
+    else v.pause();
+  });
+}
+
 // ---- UTILS ----
 function fmtNum(n){
   const v=parseInt(n)||0;
@@ -1248,6 +1346,7 @@ function renderCarousel(){
     arrowL.style.display = 'none';
     arrowR.style.display = 'none';
     dotsEl.classList.remove('show');
+    track.innerHTML=''; track.dataset.key='';
     return;
   }
 
@@ -1255,9 +1354,18 @@ function renderCarousel(){
   track.style.display = 'flex';
 
   // build slides
-  track.innerHTML = state.images.map((img,i)=>
-    `<div class="ig-slide"><img src="${img.url}" alt=""></div>`
-  ).join('');
+  const key = state.images.map(m=>m.id).join(',');
+  if(track.dataset.key!==key){
+    track.innerHTML = state.images.map((m,i)=>
+      `<div class="ig-slide">${mediaHTML(m)}${m.type==='video'?`<div class="ig-vid-sound">${ICON_SOUND_OFF}</div>`:''}</div>`
+    ).join('');
+    track.dataset.key = key;
+    track.querySelectorAll('.ig-slide').forEach(s=>{
+      const v=s.querySelector('video'); if(!v) return;
+      s.onclick=()=>{ videoSoundOn=!videoSoundOn; syncCarouselVideos(); };
+    });
+  }
+  syncCarouselVideos();
 
   // translate
   track.style.transform = `translateX(-${state.currentIdx * 100}%)`;
@@ -1300,11 +1408,12 @@ function renderThumbs(){
   state.images.forEach((img,i)=>{
     const item = document.createElement('div');
     item.className = 'thumb-item'+(i===state.currentIdx?' active':'');
-    item.innerHTML = `<img src="${img.url}" alt=""><div class="thumb-del">×</div>`;
+    item.innerHTML = `<img src="${thumbSrc(img)}" alt="">${img.type==='video'?'<div class="thumb-vid">▶ 影片</div>':''}<div class="thumb-del">×</div>`;
     item.querySelector('img').onclick = ()=>{state.currentIdx=i;syncThumbs();renderCarousel()};
     item.querySelector('.thumb-del').onclick = (e)=>{
       e.stopPropagation();
-      state.images.splice(i,1);
+      const removed = state.images.splice(i,1)[0];
+      if(removed && removed.type==='video') setTimeout(()=>URL.revokeObjectURL(removed.url),0);
       if(state.currentIdx>=state.images.length) state.currentIdx=Math.max(0,state.images.length-1);
       renderThumbs();renderCarousel();
       renderProfileGrid();renderReelsMedia();renderPostSlots();
@@ -1432,7 +1541,7 @@ function renderProfileGrid(){
     const isPinned = state.pfTab==='grid' && slot.pinned;
     const icon = state.pfTab==='grid' ? slot.icon : (state.pfTab==='reels' ? 'reels' : '');
     const cellInner = imgs[i]
-      ? `<img src="${imgs[i].url}" alt="">`
+      ? `<img src="${thumbSrc(imgs[i])}" alt="">`
       : `<div class="pf-cell empty" style="position:absolute;inset:0">${state.pfTab==='reels'?'Reel':'貼文'} ${i+1}</div>`;
     let badges = '';
     if(isPinned){
@@ -1454,18 +1563,27 @@ function renderReelsMedia(){
   const wrap = document.getElementById('reelsMedia');
   const ph = document.getElementById('reelsPlaceholder');
   const album = document.getElementById('reelsAlbum');
-  wrap.querySelectorAll('img').forEach(el=>el.remove());
+  const first = state.images[0];
+  const rkey = first ? String(first.id) : '';
+  if(wrap.dataset.key!==rkey){
+    wrap.querySelectorAll('img,video').forEach(el=>el.remove());
+    wrap.dataset.key=rkey;
+    if(first){
+      const tmp=document.createElement('div'); tmp.innerHTML=mediaHTML(first);
+      const el=tmp.firstElementChild; if(el.tagName==='VIDEO') el.muted=true;
+      wrap.insertBefore(el, ph);
+    }
+  }
+  const rv=wrap.querySelector('video');
+  if(rv){ if(state.mode==='reels'){const p=rv.play(); if(p&&p.catch) p.catch(()=>{});} else rv.pause(); }
   if(state.images.length===0){
     ph.style.display='flex';
     album.classList.add('empty');
     album.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M9 17V5l12-2v12"/><circle cx="6" cy="17" r="3"/><circle cx="18" cy="15" r="3"/></svg>`;
   } else {
     ph.style.display='none';
-    const img = document.createElement('img');
-    img.src = state.images[0].url;
-    wrap.insertBefore(img, ph);
     album.classList.remove('empty');
-    album.innerHTML = `<img src="${state.images[0].url}" alt="">`;
+    album.innerHTML = `<img src="${thumbSrc(first)}" alt="">`;
   }
   // 同步狀態裝飾
   document.getElementById('reelsLikeBtn').classList.toggle('liked', state.reelsLiked);
@@ -1538,7 +1656,7 @@ function renderPostSlots(){
     const slot = state.pfSlots[i];
     const img = state.images[i];
     const thumb = img
-      ? `<img src="${img.url}" alt="">`
+      ? `<img src="${thumbSrc(img)}" alt="">`
       : `<div class="ps-empty">貼文 ${i+1}</div>`;
     html += `<div class="post-slot ${slot.pinned?'is-pinned':''}" data-idx="${i}">
       <div class="ps-thumb">${thumb}</div>
@@ -1655,6 +1773,9 @@ function renderMode(){
   const target = state.mode==='reels' ? 'ig-reels' : (state.mode==='profile' ? 'ig-profile' : 'ig-card');
   document.getElementById(target).classList.add('active');
   document.body.dataset.mode = state.mode;
+  syncCarouselVideos();
+  const rv=document.querySelector('#reelsMedia video');
+  if(rv){ if(state.mode==='reels'){const p=rv.play(); if(p&&p.catch) p.catch(()=>{});} else rv.pause(); }
 }
 
 // ---- EVENTS ----
@@ -1673,32 +1794,36 @@ document.getElementById('avInput').onchange = function(){
   r.readAsDataURL(f);
 };
 
-document.getElementById('imgInput').onchange = function(){
+document.getElementById('imgInput').onchange = async function(){
   const files = Array.from(this.files);
+  this.value='';
   const remaining = 20 - state.images.length;
   const toAdd = files.slice(0,remaining);
-  let loaded = 0;
   const results = [];
-  toAdd.forEach((f,i)=>{
-    const r=new FileReader();
-    r.onload=e=>{
-      results[i]={url:e.target.result,id:Date.now()+i};
-      loaded++;
-      if(loaded===toAdd.length){
-        state.images.push(...results);
-        if(state.currentIdx===0 && state.images.length===results.length){
-          state.currentIdx=0;
-        }
-        renderThumbs();
-        renderCarousel();
-        renderProfileGrid();
-        renderReelsMedia();
-        renderPostSlots();
-      }
-    };
-    r.readAsDataURL(f);
-  });
-  this.value='';
+  const failed = [];
+  const hasVideo = toAdd.some(isVideoFile);
+  if(hasVideo) showUploadMsg('影片處理中…');
+  for(let i=0;i<toAdd.length;i++){
+    const f=toAdd[i];
+    const id=Date.now()+'-'+i+'-'+Math.random().toString(36).slice(2,6);
+    if(isVideoFile(f)){
+      const url=URL.createObjectURL(f);
+      const poster=await makePoster(url);
+      if(!poster){ URL.revokeObjectURL(url); failed.push(f.name); continue; }
+      results.push({type:'video',url,poster,id});
+    } else {
+      const url=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.onerror=()=>r(null);fr.readAsDataURL(f);});
+      if(url) results.push({type:'image',url,id}); else failed.push(f.name);
+    }
+  }
+  showUploadMsg(failed.length ? `無法讀取：${failed.join('、')}（影片建議用 MP4 / H.264）` : '');
+  if(!results.length) return;
+  state.images.push(...results);
+  renderThumbs();
+  renderCarousel();
+  renderProfileGrid();
+  renderReelsMedia();
+  renderPostSlots();
 };
 
 document.getElementById('arrowL').onclick = ()=>{
@@ -1812,6 +1937,45 @@ document.getElementById('phoneToggle').onclick=function(){
   state.phone=!state.phone;
   this.classList.toggle('on',state.phone);
   document.getElementById('phoneWrapper').classList.toggle('with-phone-frame',state.phone);
+  fitPreview();
+};
+
+// ---- 手機版：預覽自動縮放到螢幕寬度 ----
+function fitPreview(){
+  const area=document.querySelector('.preview-area');
+  const w=document.getElementById('phoneWrapper');
+  if(!('zoom' in w.style)) return;
+  const cs=getComputedStyle(area);
+  const avail=area.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight);
+  const natural=state.phone?428:390;
+  const s=Math.min(1,avail/natural);
+  w.style.zoom = s<1 ? String(s) : '';
+}
+window.addEventListener('resize',fitPreview);
+window.addEventListener('orientationchange',fitPreview);
+
+// 點整列就能切換開關（不用精準點小按鈕）
+document.querySelectorAll('.toggle-row').forEach(row=>{
+  row.addEventListener('click',e=>{
+    if(e.target.closest('.toggle')) return;
+    const t=row.querySelector('.toggle'); if(t) t.click();
+  });
+});
+
+// 輪播圖左右滑動
+(function(){
+  const wrap=document.getElementById('igImgWrap');
+  let sx=0,sy=0;
+  wrap.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY},{passive:true});
+  wrap.addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-sx, dy=e.changedTouches[0].clientY-sy;
+    if(Math.abs(dx)<40||Math.abs(dx)<Math.abs(dy)) return;
+    document.getElementById(dx<0?'arrowR':'arrowL').onclick();
+  },{passive:true});
+})();
+
+document.getElementById('peekBtn').onclick=()=>{
+  document.querySelector('.preview-area').scrollIntoView({behavior:'smooth',block:'start'});
 };
 
 // ---- EXPORT ----
@@ -1819,7 +1983,33 @@ async function exportImg(){
   const target = state.mode==='reels' ? 'ig-reels' : (state.mode==='profile' ? 'ig-profile' : 'ig-card');
   const card=document.getElementById(target);
   const bg = state.mode==='reels' ? '#000' : (state.theme==='light' ? '#ffffff' : '#000000');
-  return await html2canvas(card,{scale:2,useCORS:true,backgroundColor:bg,logging:false});
+  // 匯出時暫時取消縮放，確保輸出尺寸正確
+  const w=document.getElementById('phoneWrapper');
+  const z=w.style.zoom; w.style.zoom='';
+  // 影片：截取「目前播放的畫面」換成圖片再匯出
+  const swaps=[...card.querySelectorAll('video')].map(v=>{
+    let src=v.getAttribute('poster')||'';
+    try{
+      if(v.videoWidth){
+        const c=document.createElement('canvas');
+        c.width=v.videoWidth;c.height=v.videoHeight;
+        c.getContext('2d').drawImage(v,0,0);
+        src=c.toDataURL('image/jpeg',.92);
+      }
+    }catch(e){}
+    const img=document.createElement('img');
+    img.src=src;img.className='vid-snap';
+    img.style.cssText='width:100%;height:100%;object-fit:cover;display:block';
+    v.after(img);v.style.display='none';
+    return {v,img};
+  });
+  try{
+    await Promise.all(swaps.map(s=>s.img.decode?s.img.decode().catch(()=>{}):null));
+    return await html2canvas(card,{scale:2,useCORS:true,backgroundColor:bg,logging:false});
+  }finally{
+    w.style.zoom=z;
+    swaps.forEach(({v,img})=>{img.remove();v.style.display='';});
+  }
 }
 
 function showIOSModal(dataUrl){
@@ -1878,6 +2068,7 @@ renderPfActions();
 renderPfTab();
 renderReelsMedia();
 renderMode();
+fitPreview();
 renderHighlights();
 renderHighlightsPanel();
 renderPostSlots();
